@@ -343,9 +343,11 @@ def generate_destroyable_walls(level):
 def generate_teleport(level):
     y = random.randint(0, len(level) - 1)
     x = random.randint(0, len(level[y]) - 1)
-    if level[y][x] == '.':
-        if (x, y) not in [(1, 1), (1, 2), (2, 1)]:
-            level[y][x] = '/'
+    while level[y][x] != '.':
+        y = random.randint(0, len(level) - 1)
+        x = random.randint(0, len(level[y]) - 1)
+    if (x, y) not in [(1, 1), (1, 2), (2, 1)]:
+        level[y][x] = '/'
 
 
 def camera_configure(camera, target_rect):
