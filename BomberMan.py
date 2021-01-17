@@ -46,12 +46,12 @@ def start_screen():
                   "Если в правилах несколько строк,",
                   "приходится выводить их построчно"]
 
-    fon = pygame.transform.scale(load_image('grass.png'), (MAIN_WIDTH, MAIN_HEIGHT))
+    fon = pygame.transform.scale(load_image('fon.png'), (MAIN_WIDTH, MAIN_HEIGHT))
     screen.blit(fon, (0, 0))
     font = pygame.font.Font(None, 30)
     text_coord = 50
     for line in intro_text:
-        string_rendered = font.render(line, 1, pygame.Color('black'))
+        string_rendered = font.render(line, 1, pygame.Color('purple'))
         intro_rect = string_rendered.get_rect()
         text_coord += 10
         intro_rect.top = text_coord
@@ -135,10 +135,14 @@ class Player(sprite.Sprite):
             self.image.fill(Color(COLOR))
             self.yvel = -MOVE_SPEED
             self.boltAnimUp.blit(self.image, (0, 0))
+            self.boltAnimStay = pyganim.PygAnimation(ANIMATION_UP)
+            self.boltAnimStay.play()
         if down:
             self.yvel = MOVE_SPEED
             self.image.fill(Color(COLOR))
             self.boltAnimStay.blit(self.image, (0, 0))
+            self.boltAnimStay = pyganim.PygAnimation(ANIMATION_DOWN)
+            self.boltAnimStay.play()
         if left:
             self.xvel = -MOVE_SPEED  # Лево = x - n
             self.image.fill(Color(COLOR))
@@ -146,6 +150,8 @@ class Player(sprite.Sprite):
                 self.boltAnimLeft.blit(self.image, (0, 0))
             else:
                 self.boltAnimLeft.blit(self.image, (0, 0))
+            self.boltAnimStay = pyganim.PygAnimation(ANIMATION_LEFT)
+            self.boltAnimStay.play()
         if right:
             self.xvel = MOVE_SPEED  # Право = x + n
             self.image.fill(Color(COLOR))
@@ -153,6 +159,8 @@ class Player(sprite.Sprite):
                 self.boltAnimRight.blit(self.image, (0, 0))
             else:
                 self.boltAnimRight.blit(self.image, (0, 0))
+            self.boltAnimStay = pyganim.PygAnimation(ANIMATION_RIGHT)
+            self.boltAnimStay.play()
         if not (left or right):  # стоим, когда нет указаний идти
             self.xvel = 0
             if not up:
@@ -202,7 +210,7 @@ class Bomb(pygame.sprite.Sprite):
         self.boltAnimBomb_Big = pyganim.PygAnimation(ANIMATION_BOMB_BIG)
         self.boltAnimBomb_Big.play()
         self.boltAnimBomb.blit(self.image, (0, 0))  # По-умолчанию, стоим
-        self.rect = pygame.Rect(coords[0], coords[1], PLATFORM_WIDTH, PLATFORM_HEIGHT)
+        self.rect = pygame.Rect(coords[0] // 64 * 64 + 10, coords[1] // 64 * 64 + 10, PLATFORM_WIDTH, PLATFORM_HEIGHT)
 
     def animation(self, time):
         self.image.fill(Color(COLOR))
