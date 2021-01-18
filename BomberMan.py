@@ -10,6 +10,7 @@ MAIN_HEIGHT = 900  # Высота
 DISPLAY = (MAIN_WIDTH, MAIN_HEIGHT)  # Группируем ширину и высоту в одну переменную
 FPS = 60
 screen = pygame.display.set_mode(DISPLAY)
+level_num = 1
 
 BACKGROUND_COLOR = "#004400"
 clock = pygame.time.Clock()
@@ -78,8 +79,8 @@ class Wall(pygame.sprite.Sprite):
         self.rect = pygame.Rect(x, y, PLATFORM_WIDTH, PLATFORM_HEIGHT)
 
 
-def load_level(filename):
-    filename = "levels/" + filename + '.txt'
+def load_level(filename, add_to_level=0):
+    filename = "level/" + filename + '.txt'
     # читаем уровень, убирая символы перевода строки
     print(filename)
     with open(filename, 'r') as mapFile:
@@ -88,8 +89,26 @@ def load_level(filename):
     # и подсчитываем максимальную длину
     max_width = max(map(len, level_map))
 
-    # дополняем каждую строку пустыми клетками ('.')
-    return list(map(lambda x: list(x.ljust(max_width, '.')), level_map))
+    if add_to_level != 0:
+
+        for i in range(1, len(level_map) - 1):
+            level_map[i] = level_map[i][:-1]
+
+        level_map[0] += '#' * add_to_level * 2
+        level_map[-1] += '#' * add_to_level * 2
+        max_width = len(level_map[0])
+        level_map = list(map(lambda x: list(x.ljust(max_width, '.')), level_map))
+        for i in range(1, len(level_map) - 1):
+            level_map[i][-1] = '#'
+        for i in range(len(level_map)):
+            for j in range(max_width):
+                if i % 2 == 0 and j % 2 == 0 and level_map[i][j] == '.':
+                    level_map[i][j] = '#'
+        print(len(level_map[0]))
+    else:
+        level_map = list(map(lambda x: list(x.rjust(max_width, '.')), level_map))
+
+    return level_map
 
 
 MOVE_SPEED = 5
@@ -167,6 +186,7 @@ class Player(sprite.Sprite):
         self.collide(self.xvel, 0, platforms, enemies, tp)
 
     def collide(self, xvel, yvel, platforms, enemies, tp):
+        global level_num
         for p in platforms:
             if sprite.collide_rect(self, p):  # если есть пересечение стены с игроком
                 if xvel > 0:  # если движется вправо
@@ -189,7 +209,8 @@ class Player(sprite.Sprite):
 
         for t in tp:
             if sprite.collide_rect(self, t):
-                main('level2')
+                level_num += 1
+                main(level_num)
 
     def get_coords(self):
         return self.rect.x, self.rect.y
@@ -328,7 +349,7 @@ class Teleport(pygame.sprite.Sprite):
 
 def generate_destroyable_walls(level):
     coords_of_walls = []
-    for i in range(random.randint(10, 10)):
+    for i in range(random.randint(100, 300)):
         y = random.randint(0, len(level) - 1)
         x = random.randint(0, len(level[y]) - 1)
         while (x, y) in coords_of_walls:
@@ -343,9 +364,22 @@ def generate_destroyable_walls(level):
 def generate_teleport(level):
     y = random.randint(0, len(level) - 1)
     x = random.randint(0, len(level[y]) - 1)
-    if level[y][x] == '.':
+    while level[y][x] != '.':
+        y = random.randint(0, len(level) - 1)
+        x = random.randint(0, len(level[y]) - 1)
+    if (x, y) not in [(1, 1), (1, 2), (2, 1)]:
+        level[y][x] = '/'
+
+
+def generate_enemy(level, level_num):
+    for i in range(level_num * 2):
+        y = random.randint(0, len(level) - 1)
+        x = random.randint(0, len(level[y]) - 1)
+        while level[y][x] != '.':
+            y = random.randint(0, len(level) - 1)
+            x = random.randint(0, len(level[y]) - 1)
         if (x, y) not in [(1, 1), (1, 2), (2, 1)]:
-            level[y][x] = '/'
+            level[y][x] = '*'
 
 
 def camera_configure(camera, target_rect):
@@ -360,7 +394,12 @@ def camera_configure(camera, target_rect):
     return pygame.Rect(l, t, w, h)
 
 
-def main(level_to_load='map'):
+def main(level_numb=1):
+    if level_numb != 1:
+        level_numb -= 1
+        level = load_level('map', level_numb)
+    else:
+        level = load_level('map')
     pygame.mixer.pre_init(44100, -16, 1, 512)
     pygame.init()  # Инициация PyGame, обязательная строчка
     pygame.display.set_caption("BomberMan")  # Пишем в шапку
@@ -375,7 +414,6 @@ def main(level_to_load='map'):
     bomb_lst = []
     hero = Player(70, 70)  # создаем героя по (x,y) координатам
     up = down = left = right = False  # по умолчанию - стоим
-    level = load_level(level_to_load)
     counter, text = 300, 'TIME 300'.rjust(3)
     pygame.time.set_timer(pygame.USEREVENT, 1000)
     running = True
@@ -385,11 +423,11 @@ def main(level_to_load='map'):
     enem = []
     all_sprites.add(hero)
     generate_destroyable_walls(level)
-    generate_teleport(level)
     tp = pygame.sprite.Group()
     on_next_level = []
     x = y = 0  # координаты
     generate_teleport(level)
+    generate_enemy(level, level_num)
     for row in level:  # вся строка
         for col in row:  # каждый символ
             if col == '#':
