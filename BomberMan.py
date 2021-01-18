@@ -404,7 +404,7 @@ def main(level_numb=1):
     pygame.init()  # Инициация PyGame, обязательная строчка
     pygame.display.set_caption("BomberMan")  # Пишем в шапку
     start_screen()
-    pygame.mixer.music.load(os.path.join('pictures', 'background.mp3'))
+    pygame.mixer.music.load(os.path.join('audio', 'background.mp3'))
     pygame.mixer.music.set_volume(0.02)
     pygame.mixer.music.play(-1)
     bg = Surface((MAIN_WIDTH, MAIN_HEIGHT))  # Создание видимой поверхности
@@ -453,7 +453,7 @@ def main(level_numb=1):
     total_level_height = len(level) * PLATFORM_HEIGHT  # высоту
     font = pygame.font.SysFont('Consolas', 30)
     camera = Camera(camera_configure, total_level_width, total_level_height)
-    boom = pygame.mixer.Sound(os.path.join('pictures', 'bang.wav'))
+    boom = pygame.mixer.Sound(os.path.join('audio', 'bang.wav'))
     boom.set_volume(0.05)
     while running:  # Основной цикл программы
         screen.blit(bg, (0, 0))  # Каждую итерацию необходимо всё перерисовывать
