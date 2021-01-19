@@ -453,13 +453,13 @@ def main(level_to_load='map'):
             x += PLATFORM_WIDTH  # блоки платформы ставятся на ширине блоков
         y += PLATFORM_HEIGHT  # то же самое и с высотой
         x = 0  # на каждой новой строчке начинаем с нуля
-    print(all_sprites, platforms)
     total_level_width = len(level[0]) * PLATFORM_WIDTH  # Высчитываем фактическую ширину уровня
     total_level_height = len(level) * PLATFORM_HEIGHT  # высоту
     font = pygame.font.SysFont('Consolas', 30)
     camera = Camera(camera_configure, total_level_width, total_level_height)
     boom = pygame.mixer.Sound(os.path.join('pictures', 'bang.wav'))
     boom.set_volume(0.05)
+    radius = 2
     while running:  # Основной цикл программы
         screen.blit(bg, (0, 0))  # Каждую итерацию необходимо всё перерисовывать
         for event in pygame.event.get():  # Обрабатываем события
@@ -467,6 +467,7 @@ def main(level_to_load='map'):
                 counter -= 1
                 text = f'TIME {str(counter).rjust(3)}'
                 bomb_lst_check = []
+                boom_draw_check = []
                 for timer in range(len(bomb_lst)):
                     if bomb_lst[timer][1]:
                         bomb_lst[timer] = [bomb_lst[timer][0], bomb_lst[timer][1] - 1]
@@ -475,13 +476,18 @@ def main(level_to_load='map'):
                             b.animation(bomb_lst[timer][1])
                     else:
                         x, y = bomb_lst[timer][0].coords()
-                        print(x, y)
-                        for coords in [(0, 0, 0, 0), (-64, 0, -1, 0), (64, 0, 1, 0), (0, -64, 0, -1), (0, 64, 0, 1)]:
-                            if level[y // 64 + coords[3]][x // 64 + coords[2]] != '#' and \
-                                    level[y // 64 + coords[3]][x // 64 + coords[2]] != '/':
-                                boom_draw = BOOM(x + coords[0], y + coords[1])
-                                boom_group.add(boom_draw)
-                                boom_lst.append((boom_draw, 2))
+                        for rad in range(1, radius + 1):
+                            for coords in [(0, 0, 0, 0), (-64, 0, -1, 0), (64, 0, 1, 0), (0, -64, 0, -1), (0, 64, 0, 1)]:
+                                try:
+                                    if level[y // 64 + coords[3]][x // 64 + coords[2]] != '#' and \
+                                            level[y // 64 + coords[3]][x // 64 + coords[2]] != '/' and (y // 64 + coords[3], x // 64 + coords[2]) not in boom_draw_check:
+                                        if level[y // 64 + coords[3]][x // 64 + coords[2]] == '%':
+                                            boom_draw_check.append((y // 64 + coords[3], x // 64 + coords[2]))
+                                        boom_draw = BOOM(x + coords[0] * rad, y + coords[1] * rad)
+                                        boom_group.add(boom_draw)
+                                        boom_lst.append((boom_draw, 2))
+                                except Exception:
+                                    pass
                         boom.play()
                 boom_lst_check = []
                 for timer in range(len(boom_lst)):
