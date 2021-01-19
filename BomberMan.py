@@ -77,9 +77,6 @@ class Wall(pygame.sprite.Sprite):
         self.image = load_image('wall.png')
         self.rect = pygame.Rect(x, y, PLATFORM_WIDTH, PLATFORM_HEIGHT)
 
-    def check(self, booms):
-        pass
-
 
 def load_level(filename):
     filename = "levels/" + filename + '.txt'
@@ -274,6 +271,17 @@ class BOOM(pygame.sprite.Sprite):
 ENEMY_WIDTH = 50
 ENEMY_HEIGHT = 50
 ENEMY_MOVE_SPEED = 3
+
+class Enemy_Two(pygame.sprite.Sprite):
+    def __init__(self, x, y):
+        sprite.Sprite.__init__(self)
+        self.image = Surface((PLATFORM_WIDTH, PLATFORM_HEIGHT))
+        self.image = load_image('e_1_down.png')
+        self.rect = pygame.Rect(x, y, ENEMY_WIDTH, ENEMY_HEIGHT)
+        self.move = ['left', 'right', 'up', 'down']
+        self.yvel = 0
+        self.xvel = 0
+        self.side, self.len_move = self.choose_side()
 
 
 class Enemy(pygame.sprite.Sprite):
@@ -527,8 +535,8 @@ def main(level_to_load='map'):
             screen.blit(sprite[0].image, camera.apply(sprite[0]))
         for sprite in all_sprites:
             screen.blit(sprite.image, camera.apply(sprite))
-            sprite.check(boom_lst)
             try:
+                sprite.check(boom_lst)
                 platforms.remove(sprite.check(boom_lst))
             except Exception:
                 pass
