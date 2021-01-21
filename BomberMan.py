@@ -300,10 +300,13 @@ class Enemy_Two(pygame.sprite.Sprite):
         self.boltAnimUp.play()
         self.yvel = 0
         self.xvel = 0
+        self.score = 0
         self.side, self.len_move = self.choose_side()
 
-    def update(self, level, platforms, bombs, booms, hero_coords):
-        if abs(hero_coords[0] - self.rect.x) <= 320 and abs(hero_coords[1] - self.rect.y) <= 320:
+    def update(self, level, platforms, bombs, booms, hero_coords, bomb_coords):
+        if abs(hero_coords[0] - self.rect.x) <= 320 and abs(hero_coords[1] - self.rect.y) <= 320 and \
+                all((hero_coords[1] > y > self.rect.y and hero_coords[0] > x > self.rect.x) or \
+                    (hero_coords[1] < y < self.rect.y and hero_coords[0] < x < self.rect.x) for (x, y) in bomb_coords):
             if abs(hero_coords[0] - self.rect.x) > abs(hero_coords[1] - self.rect.y):
                 if hero_coords[0] - self.rect.x > 0:
                     self.side = 'right'
@@ -313,6 +316,18 @@ class Enemy_Two(pygame.sprite.Sprite):
                 self.side = 'down'
             else:
                 self.side = 'up'
+        else:
+            if abs(hero_coords[0] - self.rect.x) > abs(hero_coords[1] - self.rect.y):
+                if hero_coords[0] - self.rect.x > 0:
+                    self.move = ['left', 'up', 'down']
+                else:
+                    self.move = ['left', 'up', 'down']
+            elif hero_coords[1] - self.rect.y > 0:
+                self.move = ['left', 'right', 'up']
+            else:
+                self.move = ['left', 'right', 'down']
+            self.side, self.len_move = self.choose_side()
+            self.move = ['left', 'right', 'up', 'down']
         if self.side == 'left':
             self.image.fill(Color(COLOR))
             self.xvel = -ENEMY_MOVE_SPEED
@@ -385,12 +400,16 @@ class Enemy_Two(pygame.sprite.Sprite):
             for boom in booms:
                 boom = boom[0]
                 if sprite.collide_rect(self, boom):
-                   self.kill()
+                    self.score = 200
+                    self.kill()
         else:
             self.side, self.len_move = self.choose_side()
 
     def choose_side(self):
         return random.choice(self.move), random.randint(5 * PLATFORM_WIDTH, 10 * PLATFORM_WIDTH)
+
+    def get_score(self):
+        return self.score
 
 
 class Enemy(pygame.sprite.Sprite):
@@ -402,9 +421,10 @@ class Enemy(pygame.sprite.Sprite):
         self.move = ['left', 'right', 'up', 'down']
         self.yvel = 0
         self.xvel = 0
+        self.score = 0
         self.side, self.len_move = self.choose_side()
 
-    def update(self, level, platforms, bombs, booms, hero_coords):
+    def update(self, level, platforms, bombs, booms, hero_coords, bomb_coords):
         if self.side == 'left':
             self.xvel = -ENEMY_MOVE_SPEED
         if self.side == 'right':
@@ -418,7 +438,6 @@ class Enemy(pygame.sprite.Sprite):
 
         self.rect.y += self.yvel
         self.collide(0, self.yvel, platforms, bombs, booms)
-
         self.rect.x += self.xvel
         self.collide(self.xvel, 0, platforms, bombs, booms)
 
@@ -466,12 +485,16 @@ class Enemy(pygame.sprite.Sprite):
             for boom in booms:
                 boom = boom[0]
                 if sprite.collide_rect(self, boom):
-                   self.kill()
+                    self.score = 100
+                    self.kill()
         else:
             self.side, self.len_move = self.choose_side()
 
     def choose_side(self):
         return random.choice(self.move), random.randint(5 * PLATFORM_WIDTH, 10 * PLATFORM_WIDTH)
+
+    def get_score(self):
+        return self.score
 
 
 class Teleport(pygame.sprite.Sprite):
@@ -536,8 +559,9 @@ def main(level_to_load='map'):
     hero = Player(70, 70)  # создаем героя по (x,y) координатам
     up = down = left = right = False  # по умолчанию - стоим
     level = load_level(level_to_load)
-    counter, text = 400, 'TIME 400'.rjust(3)
-    pygame.time.set_timer(pygame.USEREVENT, 500)
+    text_score ='SCORE 0'.rjust(3)
+    counter, text = 1000, 'TIME 200'.rjust(3)
+    pygame.time.set_timer(pygame.USEREVENT, 200)
     running = True
     all_sprites = pygame.sprite.Group()  # Все объекты
     platforms = []  # то, во что мы будем врезаться или опираться
@@ -580,25 +604,32 @@ def main(level_to_load='map'):
     camera = Camera(camera_configure, total_level_width, total_level_height)
     boom = pygame.mixer.Sound(os.path.join('pictures', 'bang.wav'))
     boom.set_volume(0.05)
+    lst_bomb_coords = []
     radius = 2
     while running:  # Основной цикл программы
+        score = 0
         screen.blit(bg, (0, 0))  # Каждую итерацию необходимо всё перерисовывать
         for event in pygame.event.get():  # Обрабатываем события
+            lst_bomb_coords = []
             if event.type == pygame.USEREVENT:
                 counter -= 1
-                text = f'TIME {str(counter).rjust(3)}'
+                if counter % 5 == 0:
+                    text = f'TIME {str(counter // 5).rjust(3)}'
                 bomb_lst_check = []
                 boom_draw_check = []
                 for timer in range(len(bomb_lst)):
                     if bomb_lst[timer][1]:
                         bomb_lst[timer] = [bomb_lst[timer][0], bomb_lst[timer][1] - 1]
                         bomb_lst_check.append(bomb_lst[timer])
+                        x, y = bomb_lst[timer][0].coords()
+                        lst_bomb_coords.append((x, y))
                         for b in bomb_group:
                             b.animation(bomb_lst[timer][1])
                     else:
                         x, y = bomb_lst[timer][0].coords()
                         for rad in range(1, radius + 1):
-                            for coords in [(0, 0, 0, 0), (-64, 0, -1, 0), (64, 0, 1, 0), (0, -64, 0, -1), (0, 64, 0, 1)]:
+                            for coords in [(0, 0, 0, 0), (-64, 0, -1, 0), (64, 0, 1, 0), (0, -64, 0, -1),
+                                           (0, 64, 0, 1)]:
                                 try:
                                     if level[y // 64 + coords[3]][x // 64 + coords[2]] != '#' and \
                                             level[y // 64 + coords[3]][x // 64 + coords[2]] != '/' and \
@@ -640,8 +671,9 @@ def main(level_to_load='map'):
             elif event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
                 bomb = Bomb(hero.get_coords())
                 bomb_group.add(bomb)
-                bomb_lst.append((bomb, 3))
+                bomb_lst.append((bomb, 10))
         screen.blit(font.render(text, True, (0, 0, 0)), (50, 850))
+        screen.blit(font.render(text_score, True, (0, 0, 0)), (250, 850))
         camera.update(hero)  # центризируем камеру относительно персонажа
         hero.update(left, right, up, down, platforms, enemies, tp)  # передвижение
         for sprite in bomb_lst:
@@ -655,11 +687,14 @@ def main(level_to_load='map'):
                 platforms.remove(sprite.check(boom_lst))
             except Exception:
                 pass
+        for sprite in enem:
+            score += sprite.get_score()
         for sprite in enemies:
             screen.blit(sprite.image, camera.apply(sprite))
-            sprite.update(level, platforms, bomb_lst, boom_lst, hero.get_coords())
+            sprite.update(level, platforms, bomb_lst, boom_lst, hero.get_coords(), lst_bomb_coords)
         for sprite in on_next_level:
             screen.blit(sprite.image, camera.apply(sprite))
+        text_score = f'SCORE {str(score).rjust(3)}'
         pygame.display.update()  # обновление и вывод всех изменений на экран
         clock.tick(FPS)
     pygame.quit()
