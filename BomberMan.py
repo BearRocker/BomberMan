@@ -17,6 +17,8 @@ PLATFORM_WIDTH = 64
 PLATFORM_HEIGHT = 64
 PLATFORM_COLOR = "#FF6262"
 RADIUS = 2
+SECOND_LIFE = False
+TIMEOUT = 0
 
 
 def terminate():
@@ -104,7 +106,6 @@ def load_level(filename, add_to_level=0):
             for j in range(max_width):
                 if i % 2 == 0 and j % 2 == 0 and level_map[i][j] == '.':
                     level_map[i][j] = '#'
-        print(len(level_map[0]))
     else:
         level_map = list(map(lambda x: list(x.rjust(max_width, '.')), level_map))
 
@@ -194,7 +195,7 @@ class Player(sprite.Sprite):
         self.collide(self.xvel, 0, platforms, enemies, tp)
 
     def collide(self, xvel, yvel, platforms, enemies, tp):
-        global level_num
+        global level_num, SECOND_LIFE, TIMEOUT
         for p in platforms:
             if sprite.collide_rect(self, p):  # если есть пересечение стены с игроком
                 if xvel > 0:  # если движется вправо
@@ -213,7 +214,10 @@ class Player(sprite.Sprite):
 
         for e in enemies:
             if sprite.collide_rect(self, e):
-                terminate()
+                if SECOND_LIFE:
+                    pass
+                else:
+                    terminate()
 
         for t in tp:
             if sprite.collide_rect(self, t):
@@ -511,23 +515,51 @@ class Teleport(pygame.sprite.Sprite):
         sprite.Sprite.__init__(self)
         self.image = Surface((PLATFORM_WIDTH, PLATFORM_HEIGHT))
         self.image = load_image('door.png')
-        self.rect = pygame.Rect(x, y, ENEMY_WIDTH, ENEMY_HEIGHT)
+        self.rect = pygame.Rect(x, y, PLATFORM_WIDTH, PLATFORM_HEIGHT)
 
 
-class Bonus(pygame.sprite.Sprite):
+class Bomb_radius_bonus(pygame.sprite.Sprite):
     def __init__(self, x, y):
         sprite.Sprite.__init__(self)
         self.image = Surface((PLATFORM_WIDTH, PLATFORM_HEIGHT))
-        self.image = load_image('bomberman.png')
-        self.rect = pygame.Rect(x, y, ENEMY_WIDTH, ENEMY_HEIGHT)
+        self.image = load_image('bomb_upgrade.png')
+        self.rect = pygame.Rect(x, y, PLATFORM_WIDTH, PLATFORM_HEIGHT)
 
     def update(self, platforms):
         global RADIUS
         for p in platforms:
-            if sprite.collide_rect(self, p):  # если есть пересечение стены с игроком
-                print(RADIUS)
+            if sprite.collide_rect(self, p):
                 RADIUS += 1
-                print(RADIUS)
+                self.kill()
+
+
+class Speed_up_bonus(pygame.sprite.Sprite):
+    def __init__(self, x, y):
+        sprite.Sprite.__init__(self)
+        self.image = Surface((PLATFORM_WIDTH, PLATFORM_HEIGHT))
+        self.image = load_image('speed_up.png')
+        self.rect = pygame.Rect(x, y, PLATFORM_WIDTH, PLATFORM_HEIGHT)
+
+    def update(self, platforms):
+        global MOVE_SPEED
+        for p in platforms:
+            if sprite.collide_rect(self, p):
+                MOVE_SPEED += 1
+                self.kill()
+
+
+class Second_life_bonus(pygame.sprite.Sprite):
+    def __init__(self, x, y):
+        sprite.Sprite.__init__(self)
+        self.image = Surface((PLATFORM_WIDTH, PLATFORM_HEIGHT))
+        self.image = load_image('second_life.png')
+        self.rect = pygame.Rect(x, y, PLATFORM_WIDTH, PLATFORM_HEIGHT)
+
+    def update(self, platforms):
+        global SECOND_LIFE
+        for p in platforms:
+            if sprite.collide_rect(self, p):
+                SECOND_LIFE = True
                 self.kill()
 
 
@@ -554,6 +586,7 @@ def generate_teleport(level):
     if (x, y) not in [(1, 1), (1, 2), (2, 1)]:
         level[y][x] = '/'
 
+
 def generate_enemy(level, level_num):
     for i in range(level_num * 2):
         y = random.randint(0, len(level) - 1)
@@ -563,6 +596,25 @@ def generate_enemy(level, level_num):
             x = random.randint(0, len(level[y]) - 1)
         if (x, y) not in [(1, 1), (1, 2), (2, 1)]:
             level[y][x] = '*'
+
+
+def generate_bonus(level, level_num, bonuses):
+    global SECOND_LIFE
+    for i in range(len(bonuses)):
+        y = random.randint(0, len(level) - 1)
+        x = random.randint(0, len(level[y]) - 1)
+        while level[y][x] != '.':
+            y = random.randint(0, len(level) - 1)
+            x = random.randint(0, len(level[y]) - 1)
+        if (x, y) not in [(1, 1), (1, 2), (2, 1)]:
+            if level_num > 5:
+                if bonuses[i] == 'speed_up':
+                    level[y][x] = '+'
+            if not SECOND_LIFE:
+                if bonuses[i] == 'second_life':
+                    level[y][x] = '$'
+            if bonuses[i] == 'bomb_range_up':
+                level[y][x] = '!'
 
 
 def camera_configure(camera, target_rect):
@@ -617,6 +669,7 @@ def main(level_numb=1):
     all_bonuses = []
     bonus_sprite = pygame.sprite.Group()
     hero_lst = [hero]
+    generate_bonus(level, level_num, ['speed_up', 'bomb_range_up', 'second_life'])
     for row in level:  # вся строка
         for col in row:  # каждый символ
             if col == '#':
@@ -631,13 +684,6 @@ def main(level_numb=1):
                 enemy = Enemy(x, y)
                 enemies.add(enemy)
                 enem.append(enemy)
-            if col == '/':
-                wall = Destroyable_wall(x, y)
-                all_sprites.add(wall)
-                platforms.append(wall)
-                teleport = Teleport(x, y)
-                tp.add(teleport)
-                on_next_level.append(teleport)
             if col == '^':
                 enemy = Enemy_Two(x, y)
                 enemies.add(enemy)
@@ -646,9 +692,30 @@ def main(level_numb=1):
                 wall = Destroyable_wall(x, y)
                 all_sprites.add(wall)
                 platforms.append(wall)
-                bonus = Bonus(x, y)
+                bonus = Bomb_radius_bonus(x, y)
                 bonus_sprite.add(bonus)
                 all_bonuses.append(bonus)
+            if col == '/':
+                wall = Destroyable_wall(x, y)
+                all_sprites.add(wall)
+                platforms.append(wall)
+                teleport = Teleport(x, y)
+                tp.add(teleport)
+                on_next_level.append(teleport)
+            if col == '+':
+                wall = Destroyable_wall(x, y)
+                all_sprites.add(wall)
+                platforms.append(wall)
+                speed_up = Speed_up_bonus(x, y)
+                bonus_sprite.add(speed_up)
+                all_bonuses.append(speed_up)
+            if col == '$':
+                wall = Destroyable_wall(x, y)
+                all_sprites.add(wall)
+                platforms.append(wall)
+                second_life = Second_life_bonus(x, y)
+                bonus_sprite.add(second_life)
+                all_bonuses.append(second_life)
             x += PLATFORM_WIDTH  # блоки платформы ставятся на ширине блоков
         y += PLATFORM_HEIGHT  # то же самое и с высотой
         x = 0  # на каждой новой строчке начинаем с нуля
@@ -659,7 +726,6 @@ def main(level_numb=1):
     boom = pygame.mixer.Sound(os.path.join('audio', 'bang.wav'))
     boom.set_volume(0.05)
     lst_bomb_coords = []
-    radius = 2
     while running:  # Основной цикл программы
         bomb_radius = RADIUS
         score = 0
@@ -730,7 +796,7 @@ def main(level_numb=1):
         screen.blit(font.render(text, True, (0, 0, 0)), (50, 850))
         screen.blit(font.render(text_score, True, (0, 0, 0)), (250, 850))
         camera.update(hero)  # центризируем камеру относительно персонажа
-        hero.update(left, right, up, down, platforms, enemies, tp)  # передвижение
+        hero.update(left, right, up, down, platforms, enem, on_next_level)  # передвижение
         for sprite in bonus_sprite:
             screen.blit(sprite.image, camera.apply(sprite))
             sprite.update(hero_lst)
@@ -738,7 +804,7 @@ def main(level_numb=1):
             screen.blit(sprite[0].image, camera.apply(sprite[0]))
         for sprite in boom_lst:
             screen.blit(sprite[0].image, camera.apply(sprite[0]))
-        for sprite in on_next_level:
+        for sprite in tp:
             screen.blit(sprite.image, camera.apply(sprite))
         for sprite in all_sprites:
             screen.blit(sprite.image, camera.apply(sprite))
