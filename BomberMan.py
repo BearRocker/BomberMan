@@ -17,7 +17,7 @@ PLATFORM_WIDTH = 64
 PLATFORM_HEIGHT = 64
 PLATFORM_COLOR = "#FF6262"
 RADIUS = 2
-SECOND_LIFE = False
+LIFE = 14
 TIMEOUT = 0
 
 
@@ -45,6 +45,9 @@ def load_image(name, colorkey=None):
 
 
 def restart():
+    pygame.mixer.music.load(os.path.join('audio', 'restart.mp3'))
+    pygame.mixer.music.set_volume(0.02)
+    pygame.mixer.music.play(-1)
     main()
 
 
@@ -151,11 +154,14 @@ class Player(sprite.Sprite):
         self.boltAnimStay = pyganim.PygAnimation(ANIMATION_DOWN)
         self.boltAnimStay.play()
         self.boltAnimStay.blit(self.image, (0, 0))  # По-умолчанию, стоим
-
         self.boltAnimUp = pyganim.PygAnimation(ANIMATION_UP)
         self.boltAnimUp.play()
+        self.invincibility = 0
+        self.text = ''
+        self.font = pygame.font.SysFont('Consolas', 30)
 
     def update(self, left, right, up, down, platforms, enemies, tp):
+        screen.blit(self.font.render(self.text, True, (0, 0, 0)), (500, 850))
         if up:
             self.image.fill(Color(COLOR))
             self.yvel = -MOVE_SPEED
@@ -193,6 +199,11 @@ class Player(sprite.Sprite):
                 self.boltAnimStay.blit(self.image, (0, 0))
         if not (up or down):
             self.yvel = 0
+        if self.invincibility > 0:
+            self.text = 'You are immortal'
+            self.invincibility -= 1
+        else:
+            self.text = ''
         self.rect.y += self.yvel
         self.collide(0, self.yvel, platforms, enemies, tp)
 
@@ -200,7 +211,7 @@ class Player(sprite.Sprite):
         self.collide(self.xvel, 0, platforms, enemies, tp)
 
     def collide(self, xvel, yvel, platforms, enemies, tp):
-        global level_num, SECOND_LIFE, TIMEOUT
+        global level_num, LIFE, TIMEOUT
         for p in platforms:
             if sprite.collide_rect(self, p):  # если есть пересечение стены с игроком
                 if xvel > 0:  # если движется вправо
@@ -219,21 +230,28 @@ class Player(sprite.Sprite):
 
         for e in enemies:
             if sprite.collide_rect(self, e):
-                if SECOND_LIFE:
-                    SECOND_LIFE = False
-                else:
+                if LIFE > 1 and self.invincibility == 0:
+                    LIFE -= 1
+                    self.invincibility = FPS * 5
+                elif self.invincibility == 0:
                     restart()
 
         for t in tp:
             if sprite.collide_rect(self, t):
-                level_num += 1
-                main(level_num)
+                if not len(enemies):
+                    level_num += 1
+                    main(level_num)
 
     def check(self, booms):
+        global LIFE
         for boom in booms:
             boom = boom[0]
             if sprite.collide_rect(self, boom):
-                print('Вы проиграли')
+                if LIFE > 1 and self.invincibility == 0:
+                    LIFE -= 1
+                    self.invincibility = FPS * 5
+                elif self.invincibility == 0:
+                    restart()
 
     def get_coords(self):
         return self.rect.x, self.rect.y
@@ -579,10 +597,10 @@ class Second_life_bonus(pygame.sprite.Sprite):
         self.rect = pygame.Rect(x, y, PLATFORM_WIDTH, PLATFORM_HEIGHT)
 
     def update(self, platforms):
-        global SECOND_LIFE
+        global LIFE
         for p in platforms:
             if sprite.collide_rect(self, p):
-                SECOND_LIFE = True
+                LIFE += 1
                 self.kill()
 
 
@@ -611,7 +629,6 @@ def generate_teleport(level):
 
 
 def generate_enemy(level, level_num):
-    print(level_num)
     for i in range(level_num * 2):
         y = random.randint(0, len(level) - 1)
         x = random.randint(0, len(level[y]) - 1)
@@ -631,8 +648,7 @@ def generate_enemy(level, level_num):
 
 
 def generate_bonus(level, level_num, bonuses):
-    global SECOND_LIFE
-    print(level_num)
+    global LIFE
     for i in range(len(bonuses)):
         y = random.randint(0, len(level) - 1)
         x = random.randint(0, len(level[y]) - 1)
@@ -643,7 +659,7 @@ def generate_bonus(level, level_num, bonuses):
             if level_num > 5:
                 if bonuses[i] == 'speed_up':
                     level[y][x] = '+'
-            if not SECOND_LIFE:
+            if LIFE == 1:
                 if bonuses[i] == 'second_life':
                     level[y][x] = '$'
             if bonuses[i] == 'bomb_range_up':
@@ -662,7 +678,7 @@ def camera_configure(camera, target_rect):
 
 
 def main(level_numb=1):
-    global RADIUS
+    global RADIUS, LIFE
     if level_numb != 1:
         level_numb -= 1
         level = load_level('map', level_numb)
@@ -683,6 +699,7 @@ def main(level_numb=1):
     bomb_lst = []
     hero = Player(70, 70)  # создаем героя по (x,y) координатам
     up = down = left = right = False  # по умолчанию - стоим
+    text_life = f'LIFE {LIFE}'.rjust(3)
     text_score = 'SCORE 0'.rjust(3)
     counter, text = 1000, 'TIME 200'.rjust(3)
     pygame.time.set_timer(pygame.USEREVENT, 200)
@@ -757,9 +774,10 @@ def main(level_numb=1):
     boom = pygame.mixer.Sound(os.path.join('audio', 'bang.wav'))
     boom.set_volume(0.05)
     lst_bomb_coords = []
+    enem_score = enem.copy()
     while counter:  # Основной цикл программы
-        bomb_radius = RADIUS
         score = 0
+        bomb_radius = RADIUS
         screen.blit(bg, (0, 0))  # Каждую итерацию необходимо всё перерисовывать
         for event in pygame.event.get():  # Обрабатываем события
             lst_bomb_coords = []
@@ -824,8 +842,9 @@ def main(level_numb=1):
                 bomb = Bomb(hero.get_coords())
                 bomb_group.add(bomb)
                 bomb_lst.append((bomb, 10))
-        screen.blit(font.render(text, True, (0, 0, 0)), (50, 850))
-        screen.blit(font.render(text_score, True, (0, 0, 0)), (250, 850))
+        screen.blit(font.render(text, True, (0, 0, 0)), (0, 850))
+        screen.blit(font.render(text_score, True, (0, 0, 0)), (150, 850))
+        screen.blit(font.render(text_life, True, (0, 0, 0)), (350, 850))
         camera.update(hero)  # центризируем камеру относительно персонажа
         hero.update(left, right, up, down, platforms, enem, on_next_level)  # передвижение
         for sprite in bonus_sprite:
@@ -844,15 +863,15 @@ def main(level_numb=1):
                 platforms.remove(sprite.check(boom_lst))
             except Exception:
                 pass
-        for sprite in enem:
+        for sprite in enem_score:
             score += sprite.get_score()
         for sprite in enemies:
             screen.blit(sprite.image, camera.apply(sprite))
             sprite.update(level, platforms, bomb_lst, boom_lst, hero.get_coords(), lst_bomb_coords)
             if sprite.check():
                 enem.remove(sprite.name())
-
         text_score = f'SCORE {str(score).rjust(3)}'
+        text_life = f'LIFE {LIFE}'.rjust(3)
         pygame.display.update()  # обновление и вывод всех изменений на экран
         clock.tick(FPS)
     restart()
