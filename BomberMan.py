@@ -19,6 +19,7 @@ PLATFORM_COLOR = "#FF6262"
 RADIUS = 2
 LIFE = 14
 TIMEOUT = 0
+DEATH = False
 
 
 def terminate():
@@ -211,7 +212,7 @@ class Player(sprite.Sprite):
         self.collide(self.xvel, 0, platforms, enemies, tp)
 
     def collide(self, xvel, yvel, platforms, enemies, tp):
-        global level_num, LIFE, TIMEOUT
+        global level_num, LIFE, TIMEOUT, DEATH
         for p in platforms:
             if sprite.collide_rect(self, p):  # если есть пересечение стены с игроком
                 if xvel > 0:  # если движется вправо
@@ -234,7 +235,8 @@ class Player(sprite.Sprite):
                     LIFE -= 1
                     self.invincibility = FPS * 5
                 elif self.invincibility == 0:
-                    restart()
+                    self.image = load_image('death_animation.png')
+                    DEATH = True
 
         for t in tp:
             if sprite.collide_rect(self, t):
@@ -779,6 +781,11 @@ def main(level_numb=1):
         score = 0
         bomb_radius = RADIUS
         screen.blit(bg, (0, 0))  # Каждую итерацию необходимо всё перерисовывать
+        if DEATH:
+            DEATH = False
+            death_audio.play()
+            pygame.time.delay(5000)
+            restart()
         for event in pygame.event.get():  # Обрабатываем события
             lst_bomb_coords = []
             if event.type == pygame.USEREVENT:
