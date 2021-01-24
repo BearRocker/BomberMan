@@ -16,9 +16,13 @@ clock = pygame.time.Clock()
 PLATFORM_WIDTH = 64
 PLATFORM_HEIGHT = 64
 PLATFORM_COLOR = "#FF6262"
+RADIUS = 2
+SECOND_LIFE = False
+TIMEOUT = 0
 
 
 def terminate():
+    print('ds')
     pygame.quit()
     sys.exit()
 
@@ -38,6 +42,10 @@ def load_image(name, colorkey=None):
         else:
             image = image.convert_alpha()
         return image
+
+
+def restart():
+    main()
 
 
 def start_screen():
@@ -78,8 +86,8 @@ class Wall(pygame.sprite.Sprite):
         self.rect = pygame.Rect(x, y, PLATFORM_WIDTH, PLATFORM_HEIGHT)
 
 
-def load_level(filename):
-    filename = "levels/" + filename + '.txt'
+def load_level(filename, add_to_level=0):
+    filename = "level/" + filename + '.txt'
     # читаем уровень, убирая символы перевода строки
     print(filename)
     with open(filename, 'r') as mapFile:
@@ -88,8 +96,24 @@ def load_level(filename):
     # и подсчитываем максимальную длину
     max_width = max(map(len, level_map))
 
-    # дополняем каждую строку пустыми клетками ('.')
-    return list(map(lambda x: list(x.ljust(max_width, '.')), level_map))
+    if add_to_level != 0:
+
+        for i in range(1, len(level_map) - 1):
+            level_map[i] = level_map[i][:-1]
+
+        level_map[0] += '#' * add_to_level * 2
+        level_map[-1] += '#' * add_to_level * 2
+        max_width = len(level_map[0])
+        level_map = list(map(lambda x: list(x.ljust(max_width, '.')), level_map))
+        for i in range(1, len(level_map) - 1):
+            level_map[i][-1] = '#'
+        for i in range(len(level_map)):
+            for j in range(max_width):
+                if i % 2 == 0 and j % 2 == 0 and level_map[i][j] == '.':
+                    level_map[i][j] = '#'
+    else:
+        level_map = list(map(lambda x: list(x.rjust(max_width, '.')), level_map))
+    return level_map
 
 
 MOVE_SPEED = 5
@@ -98,13 +122,14 @@ HEIGHT = 40
 COLOR = "#888888"
 
 ANIMATION_DELAY = 0.1  # скорость смены кадров
-
+level_num = 1
 ANIMATION_RIGHT = [('pictures/bomberman_right.png', 1)]
 ANIMATION_LEFT = [('pictures/bomberman_left.png', 1)]
 ANIMATION_UP = [('pictures/bomberman_up.png', 1)]
 ANIMATION_DOWN = [('pictures/bomberman_down.png', 1)]
 ANIMATION_BOMB = [('pictures/bomb.png', 1)]
 ANIMATION_BOMB_BIG = [('pictures/bomb_big.png', 1)]
+TIME_GOD = 25
 
 
 class Player(sprite.Sprite):
@@ -175,6 +200,7 @@ class Player(sprite.Sprite):
         self.collide(self.xvel, 0, platforms, enemies, tp)
 
     def collide(self, xvel, yvel, platforms, enemies, tp):
+        global level_num, SECOND_LIFE, TIMEOUT
         for p in platforms:
             if sprite.collide_rect(self, p):  # если есть пересечение стены с игроком
                 if xvel > 0:  # если движется вправо
@@ -193,11 +219,15 @@ class Player(sprite.Sprite):
 
         for e in enemies:
             if sprite.collide_rect(self, e):
-                terminate()
+                if SECOND_LIFE:
+                    SECOND_LIFE = False
+                else:
+                    restart()
 
         for t in tp:
             if sprite.collide_rect(self, t):
-                main('level2')
+                level_num += 1
+                main(level_num)
 
     def check(self, booms):
         for boom in booms:
@@ -225,6 +255,9 @@ class Destroyable_wall(pygame.sprite.Sprite):
 
     def test(self):
         pass
+
+    def coords(self):
+        return self.rect.x, self.rect.y
 
 
 class Bomb(pygame.sprite.Sprite):
@@ -271,8 +304,8 @@ class BOOM(pygame.sprite.Sprite):
         self.rect = pygame.Rect(x - 10, y - 10, PLATFORM_WIDTH, PLATFORM_HEIGHT)
 
 
-ENEMY_WIDTH = 50
-ENEMY_HEIGHT = 50
+ENEMY_WIDTH = 40
+ENEMY_HEIGHT = 40
 ENEMY_MOVE_SPEED = 3
 ANIMATION_RIGHT_ENEMY_TWO = [('pictures/e_4_right.png', 1)]
 ANIMATION_LEFT_ENEMY_TWO = [('pictures/e_4_left.png', 1)]
@@ -289,8 +322,7 @@ class Enemy_Two(pygame.sprite.Sprite):
         self.image.set_colorkey(Color(COLOR))
         self.move = ['left', 'right', 'up', 'down']
         self.boltAnimRight = pyganim.PygAnimation(ANIMATION_RIGHT_ENEMY_TWO)
-        self.boltAnimRight.play()
-        # Анимация движения влево
+        self.boltAnimRight.play()  # Анимация движения влево
         self.boltAnimLeft = pyganim.PygAnimation(ANIMATION_LEFT_ENEMY_TWO)
         self.boltAnimLeft.play()
         self.boltAnimStay = pyganim.PygAnimation(ANIMATION_DOWN_ENEMY_TWO)
@@ -301,6 +333,7 @@ class Enemy_Two(pygame.sprite.Sprite):
         self.yvel = 0
         self.xvel = 0
         self.score = 0
+        self.check_kill = False
         self.side, self.len_move = self.choose_side()
 
     def update(self, level, platforms, bombs, booms, hero_coords, bomb_coords):
@@ -316,18 +349,6 @@ class Enemy_Two(pygame.sprite.Sprite):
                 self.side = 'down'
             else:
                 self.side = 'up'
-        else:
-            if abs(hero_coords[0] - self.rect.x) > abs(hero_coords[1] - self.rect.y):
-                if hero_coords[0] - self.rect.x > 0:
-                    self.move = ['left', 'up', 'down']
-                else:
-                    self.move = ['left', 'up', 'down']
-            elif hero_coords[1] - self.rect.y > 0:
-                self.move = ['left', 'right', 'up']
-            else:
-                self.move = ['left', 'right', 'down']
-            self.side, self.len_move = self.choose_side()
-            self.move = ['left', 'right', 'up', 'down']
         if self.side == 'left':
             self.image.fill(Color(COLOR))
             self.xvel = -ENEMY_MOVE_SPEED
@@ -401,6 +422,7 @@ class Enemy_Two(pygame.sprite.Sprite):
                 boom = boom[0]
                 if sprite.collide_rect(self, boom):
                     self.score = 200
+                    self.check_kill = True
                     self.kill()
         else:
             self.side, self.len_move = self.choose_side()
@@ -410,6 +432,12 @@ class Enemy_Two(pygame.sprite.Sprite):
 
     def get_score(self):
         return self.score
+
+    def check(self):
+        return self.check_kill
+
+    def name(self):
+        return self
 
 
 class Enemy(pygame.sprite.Sprite):
@@ -422,6 +450,7 @@ class Enemy(pygame.sprite.Sprite):
         self.yvel = 0
         self.xvel = 0
         self.score = 0
+        self.check_kill = False
         self.side, self.len_move = self.choose_side()
 
     def update(self, level, platforms, bombs, booms, hero_coords, bomb_coords):
@@ -487,6 +516,7 @@ class Enemy(pygame.sprite.Sprite):
                 if sprite.collide_rect(self, boom):
                     self.score = 100
                     self.kill()
+                    self.check_kill = True
         else:
             self.side, self.len_move = self.choose_side()
 
@@ -496,18 +526,69 @@ class Enemy(pygame.sprite.Sprite):
     def get_score(self):
         return self.score
 
+    def check(self):
+        return self.check_kill
+
+    def name(self):
+        return self
+
 
 class Teleport(pygame.sprite.Sprite):
     def __init__(self, x, y):
         sprite.Sprite.__init__(self)
         self.image = Surface((PLATFORM_WIDTH, PLATFORM_HEIGHT))
         self.image = load_image('door.png')
-        self.rect = pygame.Rect(x, y, ENEMY_WIDTH, ENEMY_HEIGHT)
+        self.rect = pygame.Rect(x, y, PLATFORM_WIDTH, PLATFORM_HEIGHT)
+
+
+class Bomb_radius_bonus(pygame.sprite.Sprite):
+    def __init__(self, x, y):
+        sprite.Sprite.__init__(self)
+        self.image = Surface((PLATFORM_WIDTH, PLATFORM_HEIGHT))
+        self.image = load_image('bomb_upgrade.png')
+        self.rect = pygame.Rect(x, y, PLATFORM_WIDTH, PLATFORM_HEIGHT)
+
+    def update(self, platforms):
+        global RADIUS
+        for p in platforms:
+            if sprite.collide_rect(self, p):
+                RADIUS += 1
+                self.kill()
+
+
+class Speed_up_bonus(pygame.sprite.Sprite):
+    def __init__(self, x, y):
+        sprite.Sprite.__init__(self)
+        self.image = Surface((PLATFORM_WIDTH, PLATFORM_HEIGHT))
+        self.image = load_image('speed_up.png')
+        self.rect = pygame.Rect(x, y, PLATFORM_WIDTH, PLATFORM_HEIGHT)
+
+    def update(self, platforms):
+        global MOVE_SPEED
+        for p in platforms:
+            if sprite.collide_rect(self, p):
+                MOVE_SPEED += 1
+                self.kill()
+
+
+class Second_life_bonus(pygame.sprite.Sprite):
+    def __init__(self, x, y):
+        sprite.Sprite.__init__(self)
+        self.image = Surface((PLATFORM_WIDTH, PLATFORM_HEIGHT))
+        self.image = load_image('second_life.png')
+        self.rect = pygame.Rect(x, y, PLATFORM_WIDTH, PLATFORM_HEIGHT)
+
+    def update(self, platforms):
+        global SECOND_LIFE
+        for p in platforms:
+            if sprite.collide_rect(self, p):
+                SECOND_LIFE = True
+                self.kill()
 
 
 def generate_destroyable_walls(level):
     coords_of_walls = []
-    for i in range(random.randint(10, 50)):
+    for i in range(random.randint(5 + level_num, 15 + level_num // 2)):
         y = random.randint(0, len(level) - 1)
         x = random.randint(0, len(level[y]) - 1)
         while (x, y) in coords_of_walls:
@@ -529,6 +610,46 @@ def generate_teleport(level):
         level[y][x] = '/'
 
 
+def generate_enemy(level, level_num):
+    print(level_num)
+    for i in range(level_num * 2):
+        y = random.randint(0, len(level) - 1)
+        x = random.randint(0, len(level[y]) - 1)
+        while level[y][x] != '.':
+            y = random.randint(0, len(level) - 1)
+            x = random.randint(0, len(level[y]) - 1)
+        if (x, y) not in [(1, 1), (1, 2), (2, 1)]:
+            level[y][x] = '*'
+    for j in range(level_num):
+        y = random.randint(0, len(level) - 1)
+        x = random.randint(0, len(level[y]) - 1)
+        while level[y][x] != '.':
+            y = random.randint(0, len(level) - 1)
+            x = random.randint(0, len(level[y]) - 1)
+        if (x, y) not in [(1, 1), (1, 2), (2, 1)]:
+            level[y][x] = '^'
+
+
+def generate_bonus(level, level_num, bonuses):
+    global SECOND_LIFE
+    print(level_num)
+    for i in range(len(bonuses)):
+        y = random.randint(0, len(level) - 1)
+        x = random.randint(0, len(level[y]) - 1)
+        while level[y][x] != '.':
+            y = random.randint(0, len(level) - 1)
+            x = random.randint(0, len(level[y]) - 1)
+        if (x, y) not in [(1, 1), (1, 2), (2, 1)]:
+            if level_num > 5:
+                if bonuses[i] == 'speed_up':
+                    level[y][x] = '+'
+            if not SECOND_LIFE:
+                if bonuses[i] == 'second_life':
+                    level[y][x] = '$'
+            if bonuses[i] == 'bomb_range_up':
+                level[y][x] = '!'
+
+
 def camera_configure(camera, target_rect):
     l, t, _, _ = target_rect
     _, _, w, h = camera
@@ -537,16 +658,20 @@ def camera_configure(camera, target_rect):
     l = max(-(camera.width - MAIN_WIDTH), l)  # Не движемся дальше правой границы
     t = max(-(camera.height - MAIN_HEIGHT), t)  # Не движемся дальше нижней границы
     t = min(0, t)  # Не движемся дальше верхней границы
-    # print(l, t, w, h)
     return pygame.Rect(l, t, w, h)
 
 
-def main(level_to_load='map'):
-    pygame.mixer.pre_init(44100, -16, 1, 512)
+def main(level_numb=1):
+    global RADIUS
+    if level_numb != 1:
+        level_numb -= 1
+        level = load_level('map', level_numb)
+    else:
+        level = load_level('map')
     pygame.init()  # Инициация PyGame, обязательная строчка
     pygame.display.set_caption("BomberMan")  # Пишем в шапку
     start_screen()
-    pygame.mixer.music.load(os.path.join('pictures', 'background.mp3'))
+    pygame.mixer.music.load(os.path.join('audio', 'background.mp3'))
     pygame.mixer.music.set_volume(0.02)
     pygame.mixer.music.play(-1)
     bg = Surface((MAIN_WIDTH, MAIN_HEIGHT))  # Создание видимой поверхности
@@ -558,11 +683,9 @@ def main(level_to_load='map'):
     bomb_lst = []
     hero = Player(70, 70)  # создаем героя по (x,y) координатам
     up = down = left = right = False  # по умолчанию - стоим
-    level = load_level(level_to_load)
-    text_score ='SCORE 0'.rjust(3)
+    text_score = 'SCORE 0'.rjust(3)
     counter, text = 1000, 'TIME 200'.rjust(3)
     pygame.time.set_timer(pygame.USEREVENT, 200)
-    running = True
     all_sprites = pygame.sprite.Group()  # Все объекты
     platforms = []  # то, во что мы будем врезаться или опираться
     enemies = pygame.sprite.Group()
@@ -572,7 +695,12 @@ def main(level_to_load='map'):
     generate_teleport(level)
     tp = pygame.sprite.Group()
     on_next_level = []
+    generate_enemy(level, level_num)
     x = y = 0  # координаты
+    all_bonuses = []
+    bonus_sprite = pygame.sprite.Group()
+    hero_lst = [hero]
+    generate_bonus(level, level_num, ['speed_up', 'bomb_range_up', 'second_life'])
     for row in level:  # вся строка
         for col in row:  # каждый символ
             if col == '#':
@@ -587,14 +715,38 @@ def main(level_to_load='map'):
                 enemy = Enemy(x, y)
                 enemies.add(enemy)
                 enem.append(enemy)
-            if col == '/':
-                teleport = Teleport(x, y)
-                tp.add(teleport)
-                on_next_level.append(teleport)
             if col == '^':
                 enemy = Enemy_Two(x, y)
                 enemies.add(enemy)
                 enem.append(enemy)
+            if col == '!':
+                wall = Destroyable_wall(x, y)
+                all_sprites.add(wall)
+                platforms.append(wall)
+                bonus = Bomb_radius_bonus(x, y)
+                bonus_sprite.add(bonus)
+                all_bonuses.append(bonus)
+            if col == '/':
+                wall = Destroyable_wall(x, y)
+                all_sprites.add(wall)
+                platforms.append(wall)
+                teleport = Teleport(x, y)
+                tp.add(teleport)
+                on_next_level.append(teleport)
+            if col == '+':
+                wall = Destroyable_wall(x, y)
+                all_sprites.add(wall)
+                platforms.append(wall)
+                speed_up = Speed_up_bonus(x, y)
+                bonus_sprite.add(speed_up)
+                all_bonuses.append(speed_up)
+            if col == '$':
+                wall = Destroyable_wall(x, y)
+                all_sprites.add(wall)
+                platforms.append(wall)
+                second_life = Second_life_bonus(x, y)
+                bonus_sprite.add(second_life)
+                all_bonuses.append(second_life)
             x += PLATFORM_WIDTH  # блоки платформы ставятся на ширине блоков
         y += PLATFORM_HEIGHT  # то же самое и с высотой
         x = 0  # на каждой новой строчке начинаем с нуля
@@ -602,11 +754,11 @@ def main(level_to_load='map'):
     total_level_height = len(level) * PLATFORM_HEIGHT  # высоту
     font = pygame.font.SysFont('Consolas', 30)
     camera = Camera(camera_configure, total_level_width, total_level_height)
-    boom = pygame.mixer.Sound(os.path.join('pictures', 'bang.wav'))
+    boom = pygame.mixer.Sound(os.path.join('audio', 'bang.wav'))
     boom.set_volume(0.05)
     lst_bomb_coords = []
-    radius = 2
-    while running:  # Основной цикл программы
+    while counter:  # Основной цикл программы
+        bomb_radius = RADIUS
         score = 0
         screen.blit(bg, (0, 0))  # Каждую итерацию необходимо всё перерисовывать
         for event in pygame.event.get():  # Обрабатываем события
@@ -627,12 +779,12 @@ def main(level_to_load='map'):
                             b.animation(bomb_lst[timer][1])
                     else:
                         x, y = bomb_lst[timer][0].coords()
-                        for rad in range(1, radius + 1):
+
+                        for rad in range(1, bomb_radius):
                             for coords in [(0, 0, 0, 0), (-64, 0, -1, 0), (64, 0, 1, 0), (0, -64, 0, -1),
                                            (0, 64, 0, 1)]:
                                 try:
-                                    if level[y // 64 + coords[3]][x // 64 + coords[2]] != '#' and \
-                                            level[y // 64 + coords[3]][x // 64 + coords[2]] != '/' and \
+                                    if level[y // 64 + coords[3]][x // 64 + coords[2]] != '#'and \
                                             (y // 64 + coords[3], x // 64 + coords[2]) not in boom_draw_check:
                                         if level[y // 64 + coords[3]][x // 64 + coords[2]] == '%':
                                             boom_draw_check.append((y // 64 + coords[3], x // 64 + coords[2]))
@@ -651,7 +803,7 @@ def main(level_to_load='map'):
                 boom_lst = boom_lst_check[::]
                 bomb_lst = bomb_lst_check[::]
             if event.type == pygame.QUIT:
-                running = False
+                terminate()
             elif event.type == pygame.KEYDOWN and event.key == pygame.K_UP:
                 up = True
             elif event.type == pygame.KEYDOWN and event.key == pygame.K_LEFT:
@@ -675,11 +827,16 @@ def main(level_to_load='map'):
         screen.blit(font.render(text, True, (0, 0, 0)), (50, 850))
         screen.blit(font.render(text_score, True, (0, 0, 0)), (250, 850))
         camera.update(hero)  # центризируем камеру относительно персонажа
-        hero.update(left, right, up, down, platforms, enemies, tp)  # передвижение
+        hero.update(left, right, up, down, platforms, enem, on_next_level)  # передвижение
+        for sprite in bonus_sprite:
+            screen.blit(sprite.image, camera.apply(sprite))
+            sprite.update(hero_lst)
         for sprite in bomb_lst:
             screen.blit(sprite[0].image, camera.apply(sprite[0]))
         for sprite in boom_lst:
             screen.blit(sprite[0].image, camera.apply(sprite[0]))
+        for sprite in tp:
+            screen.blit(sprite.image, camera.apply(sprite))
         for sprite in all_sprites:
             screen.blit(sprite.image, camera.apply(sprite))
             try:
@@ -692,12 +849,13 @@ def main(level_to_load='map'):
         for sprite in enemies:
             screen.blit(sprite.image, camera.apply(sprite))
             sprite.update(level, platforms, bomb_lst, boom_lst, hero.get_coords(), lst_bomb_coords)
-        for sprite in on_next_level:
-            screen.blit(sprite.image, camera.apply(sprite))
+            if sprite.check():
+                enem.remove(sprite.name())
+
         text_score = f'SCORE {str(score).rjust(3)}'
         pygame.display.update()  # обновление и вывод всех изменений на экран
         clock.tick(FPS)
-    pygame.quit()
+    restart()
 
 
 if __name__ == "__main__":
