@@ -680,7 +680,7 @@ def camera_configure(camera, target_rect):
 
 
 def main(level_numb=1):
-    global RADIUS, LIFE
+    global RADIUS, LIFE, DEATH
     if level_numb != 1:
         level_numb -= 1
         level = load_level('map', level_numb)
