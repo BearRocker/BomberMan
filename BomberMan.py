@@ -17,11 +17,38 @@ PLATFORM_WIDTH = 64
 PLATFORM_HEIGHT = 64
 PLATFORM_COLOR = "#FF6262"
 RADIUS = 2
-SECOND_LIFE = False
+LIFE = 1
 TIMEOUT = 0
+DEATH = False
+pygame.init()
+star = pygame.sprite.Group()
+
+
+def win():
+    global star
+    for _ in range(100):
+        text = ['Вы прошли игру, поздравляем!']
+        font = pygame.font.SysFont('Consolas', 50)
+        screen.fill(pygame.Color('black'))
+        text_coord = 50
+        for line in text:
+            string_rendered = font.render(line, True, pygame.Color('white'))
+            intro_rect = string_rendered.get_rect()
+            text_coord += 10
+            intro_rect.top = text_coord
+            intro_rect.x = 10
+            text_coord += intro_rect.height
+            screen.blit(string_rendered, intro_rect)
+        x, y = random.randint(100, 400), random.randint(100, 400)
+        create_particles((x, y))
+        star.update()
+        star.draw(screen)
+        pygame.display.flip()
+        clock.tick(FPS)
 
 
 def terminate():
+    print('ds')
     pygame.quit()
     sys.exit()
 
@@ -43,32 +70,61 @@ def load_image(name, colorkey=None):
         return image
 
 
-def start_screen():
-    intro_text = ["ЗАСТАВКА", "",
-                  "Правила игры",
-                  "Если в правилах несколько строк,",
-                  "приходится выводить их построчно"]
+def restart():
+    pygame.mixer.music.load(os.path.join('audio', 'restart.mp3'))
+    pygame.mixer.music.set_volume(0.02)
+    pygame.mixer.music.play(-1)
+    main()
 
-    fon = pygame.transform.scale(load_image('fon.png'), (MAIN_WIDTH, MAIN_HEIGHT))
-    screen.blit(fon, (0, 0))
-    font = pygame.font.Font(None, 30)
-    text_coord = 50
-    for line in intro_text:
-        string_rendered = font.render(line, 1, pygame.Color('black'))
-        intro_rect = string_rendered.get_rect()
-        text_coord += 10
-        intro_rect.top = text_coord
-        intro_rect.x = 10
-        text_coord += intro_rect.height
-        screen.blit(string_rendered, intro_rect)
 
+def start_screen(level_number):
+    if level_number == 1:
+        intro_text = ["ЗАСТАВКА", "",
+                      "Правила игры",
+                      "Если в правилах несколько строк,",
+                      "приходится выводить их построчно"]
+
+        fon = pygame.transform.scale(load_image('fon.png'), (MAIN_WIDTH, MAIN_HEIGHT))
+        screen.blit(fon, (0, 0))
+        font = pygame.font.Font(None, 30)
+        text_coord = 50
+        for line in intro_text:
+            string_rendered = font.render(line, True, pygame.Color('black'))
+            intro_rect = string_rendered.get_rect()
+            text_coord += 10
+            intro_rect.top = text_coord
+            intro_rect.x = 10
+            text_coord += intro_rect.height
+            screen.blit(string_rendered, intro_rect)
+    elif level_number == 11:
+        text = ['Вы прошли игру, поздравляем!']
+        font = pygame.font.SysFont('Consolas', 50)
+        screen.fill(pygame.Color('black'))
+        text_coord = 50
+        for line in text:
+            string_rendered = font.render(line, True, pygame.Color('white'))
+            intro_rect = string_rendered.get_rect()
+            text_coord += 10
+            intro_rect.top = text_coord
+            intro_rect.x = 10
+            text_coord += intro_rect.height
+            screen.blit(string_rendered, intro_rect)
+        win()
+    else:
+        font = pygame.font.SysFont('Consolas', 50)
+        screen.fill(pygame.Color('black'))
+        text = font.render('Level ' + str(level_number), True, pygame.Color('white'))
+        screen.blit(text, (WIDTH // 2, HEIGHT // 2))
     while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 terminate()
-            elif event.type == pygame.KEYDOWN or \
-                    event.type == pygame.MOUSEBUTTONDOWN:
+            elif event.type == pygame.KEYDOWN or\
+                    event.type == pygame.MOUSEBUTTONDOWN and level_number != 11:
                 return  # начинаем игру
+            elif event.type == pygame.KEYDOWN or\
+                    event.type == pygame.MOUSEBUTTONDOWN and level_number == 11:
+                terminate()
         pygame.display.flip()
         clock.tick(FPS)
 
@@ -108,7 +164,6 @@ def load_level(filename, add_to_level=0):
                     level_map[i][j] = '#'
     else:
         level_map = list(map(lambda x: list(x.rjust(max_width, '.')), level_map))
-
     return level_map
 
 
@@ -125,6 +180,8 @@ ANIMATION_UP = [('pictures/bomberman_up.png', 1)]
 ANIMATION_DOWN = [('pictures/bomberman_down.png', 1)]
 ANIMATION_BOMB = [('pictures/bomb.png', 1)]
 ANIMATION_BOMB_BIG = [('pictures/bomb_big.png', 1)]
+ANIMATION_DEATH = [('pictures/death_animation.png', 1)]
+TIME_GOD = 25
 
 
 class Player(sprite.Sprite):
@@ -146,11 +203,16 @@ class Player(sprite.Sprite):
         self.boltAnimStay = pyganim.PygAnimation(ANIMATION_DOWN)
         self.boltAnimStay.play()
         self.boltAnimStay.blit(self.image, (0, 0))  # По-умолчанию, стоим
-
         self.boltAnimUp = pyganim.PygAnimation(ANIMATION_UP)
         self.boltAnimUp.play()
+        self.invincibility = 0
+        self.text = ''
+        self.font = pygame.font.SysFont('Consolas', 30)
+        self.boltAnimDeath = pyganim.PygAnimation(ANIMATION_DEATH)
+        self.boltAnimDeath.play()
 
-    def update(self, left, right, up, down, platforms, enemies, tp):
+    def update(self, left, right, up, down, platforms, enemies, tp, booms):
+        screen.blit(self.font.render(self.text, True, (0, 0, 0)), (500, 850))
         if up:
             self.image.fill(Color(COLOR))
             self.yvel = -MOVE_SPEED
@@ -188,14 +250,19 @@ class Player(sprite.Sprite):
                 self.boltAnimStay.blit(self.image, (0, 0))
         if not (up or down):
             self.yvel = 0
+        if self.invincibility > 0:
+            self.text = 'You are immortal'
+            self.invincibility -= 1
+        else:
+            self.text = ''
         self.rect.y += self.yvel
-        self.collide(0, self.yvel, platforms, enemies, tp)
+        self.collide(0, self.yvel, platforms, enemies, tp, booms)
 
         self.rect.x += self.xvel  # переносим свои положение на xvel
-        self.collide(self.xvel, 0, platforms, enemies, tp)
+        self.collide(self.xvel, 0, platforms, enemies, tp, booms)
 
-    def collide(self, xvel, yvel, platforms, enemies, tp):
-        global level_num, SECOND_LIFE, TIMEOUT
+    def collide(self, xvel, yvel, platforms, enemies, tp, booms):
+        global level_num, LIFE, TIMEOUT, DEATH
         for p in platforms:
             if sprite.collide_rect(self, p):  # если есть пересечение стены с игроком
                 if xvel > 0:  # если движется вправо
@@ -214,24 +281,38 @@ class Player(sprite.Sprite):
 
         for e in enemies:
             if sprite.collide_rect(self, e):
-                if SECOND_LIFE:
-                    pass
-                else:
-                    terminate()
+                if LIFE > 1 and self.invincibility == 0:
+                    LIFE -= 1
+                    self.invincibility = FPS * 5
+                elif self.invincibility == 0:
+                    self.animation_death()
 
         for t in tp:
             if sprite.collide_rect(self, t):
-                level_num += 1
-                main(level_num)
+                if not len(enemies):
+                    level_num += 1
+                    main(level_num)
 
-    def check(self, booms):
         for boom in booms:
             boom = boom[0]
             if sprite.collide_rect(self, boom):
-                print('Вы проиграли')
+                if LIFE > 1 and self.invincibility == 0:
+                    LIFE -= 1
+                    self.invincibility = FPS * 5
+                elif self.invincibility == 0:
+                    self.animation_death()
 
     def get_coords(self):
         return self.rect.x, self.rect.y
+
+    def animation_death(self):
+        global DEATH
+        self.image = Surface((64, 64))
+        self.image.fill(Color(COLOR))
+        self.image.set_colorkey(Color(COLOR))
+        self.boltAnimDeath.blit(self.image, (0, 0))
+        self.boltAnimDeath.play()
+        DEATH = True
 
 
 class Destroyable_wall(pygame.sprite.Sprite):
@@ -250,6 +331,9 @@ class Destroyable_wall(pygame.sprite.Sprite):
 
     def test(self):
         pass
+
+    def coords(self):
+        return self.rect.x, self.rect.y
 
 
 class Bomb(pygame.sprite.Sprite):
@@ -314,8 +398,7 @@ class Enemy_Two(pygame.sprite.Sprite):
         self.image.set_colorkey(Color(COLOR))
         self.move = ['left', 'right', 'up', 'down']
         self.boltAnimRight = pyganim.PygAnimation(ANIMATION_RIGHT_ENEMY_TWO)
-        self.boltAnimRight.play()
-        # Анимация движения влево
+        self.boltAnimRight.play()  # Анимация движения влево
         self.boltAnimLeft = pyganim.PygAnimation(ANIMATION_LEFT_ENEMY_TWO)
         self.boltAnimLeft.play()
         self.boltAnimStay = pyganim.PygAnimation(ANIMATION_DOWN_ENEMY_TWO)
@@ -326,6 +409,7 @@ class Enemy_Two(pygame.sprite.Sprite):
         self.yvel = 0
         self.xvel = 0
         self.score = 0
+        self.check_kill = False
         self.side, self.len_move = self.choose_side()
 
     def update(self, level, platforms, bombs, booms, hero_coords, bomb_coords):
@@ -414,6 +498,7 @@ class Enemy_Two(pygame.sprite.Sprite):
                 boom = boom[0]
                 if sprite.collide_rect(self, boom):
                     self.score = 200
+                    self.check_kill = True
                     self.kill()
         else:
             self.side, self.len_move = self.choose_side()
@@ -423,6 +508,12 @@ class Enemy_Two(pygame.sprite.Sprite):
 
     def get_score(self):
         return self.score
+
+    def check(self):
+        return self.check_kill
+
+    def name(self):
+        return self
 
 
 class Enemy(pygame.sprite.Sprite):
@@ -435,6 +526,7 @@ class Enemy(pygame.sprite.Sprite):
         self.yvel = 0
         self.xvel = 0
         self.score = 0
+        self.check_kill = False
         self.side, self.len_move = self.choose_side()
 
     def update(self, level, platforms, bombs, booms, hero_coords, bomb_coords):
@@ -500,6 +592,7 @@ class Enemy(pygame.sprite.Sprite):
                 if sprite.collide_rect(self, boom):
                     self.score = 100
                     self.kill()
+                    self.check_kill = True
         else:
             self.side, self.len_move = self.choose_side()
 
@@ -508,6 +601,12 @@ class Enemy(pygame.sprite.Sprite):
 
     def get_score(self):
         return self.score
+
+    def check(self):
+        return self.check_kill
+
+    def name(self):
+        return self
 
 
 class Teleport(pygame.sprite.Sprite):
@@ -533,6 +632,53 @@ class Bomb_radius_bonus(pygame.sprite.Sprite):
                 self.kill()
 
 
+# для отслеживания улетевших частиц
+# удобно использовать пересечение прямоугольников
+screen_rect = (0, 0, WIDTH, HEIGHT)
+GRAVITY = 10
+
+
+class Particle(pygame.sprite.Sprite):
+    # сгенерируем частицы разного размера
+    fire = [load_image("star.png")]
+    for scale in (5, 10, 20):
+        fire.append(pygame.transform.scale(fire[0], (scale, scale)))
+
+    def __init__(self, pos, dx, dy):
+        global star
+        super().__init__(star)
+        self.image = random.choice(self.fire)
+        self.rect = self.image.get_rect()
+
+        # у каждой частицы своя скорость — это вектор
+        self.velocity = [dx, dy]
+        # и свои координаты
+        self.rect.x, self.rect.y = pos
+
+        # гравитация будет одинаковой (значение константы)
+        self.gravity = GRAVITY
+
+    def update(self):
+        # применяем гравитационный эффект:
+        # движение с ускорением под действием гравитации
+        self.velocity[1] += self.gravity
+        # перемещаем частицу
+        self.rect.x += self.velocity[0]
+        self.rect.y += self.velocity[1]
+        # убиваем, если частица ушла за экран
+        if not self.rect.colliderect(screen_rect):
+            self.kill()
+
+
+def create_particles(position):
+    # количество создаваемых частиц
+    particle_count = 20
+    # возможные скорости
+    numbers = range(-5, 6)
+    for _ in range(particle_count):
+        Particle(position, random.choice(numbers), random.choice(numbers))
+
+
 class Speed_up_bonus(pygame.sprite.Sprite):
     def __init__(self, x, y):
         sprite.Sprite.__init__(self)
@@ -556,16 +702,16 @@ class Second_life_bonus(pygame.sprite.Sprite):
         self.rect = pygame.Rect(x, y, PLATFORM_WIDTH, PLATFORM_HEIGHT)
 
     def update(self, platforms):
-        global SECOND_LIFE
+        global LIFE
         for p in platforms:
             if sprite.collide_rect(self, p):
-                SECOND_LIFE = True
+                LIFE += 1
                 self.kill()
 
 
 def generate_destroyable_walls(level):
     coords_of_walls = []
-    for i in range(random.randint(1, 10)):
+    for i in range(random.randint(5 + level_num, 15 + level_num // 2)):
         y = random.randint(0, len(level) - 1)
         x = random.randint(0, len(level[y]) - 1)
         while (x, y) in coords_of_walls:
@@ -596,10 +742,18 @@ def generate_enemy(level, level_num):
             x = random.randint(0, len(level[y]) - 1)
         if (x, y) not in [(1, 1), (1, 2), (2, 1)]:
             level[y][x] = '*'
+    for j in range(level_num):
+        y = random.randint(0, len(level) - 1)
+        x = random.randint(0, len(level[y]) - 1)
+        while level[y][x] != '.':
+            y = random.randint(0, len(level) - 1)
+            x = random.randint(0, len(level[y]) - 1)
+        if (x, y) not in [(1, 1), (1, 2), (2, 1)]:
+            level[y][x] = '^'
 
 
 def generate_bonus(level, level_num, bonuses):
-    global SECOND_LIFE
+    global LIFE
     for i in range(len(bonuses)):
         y = random.randint(0, len(level) - 1)
         x = random.randint(0, len(level[y]) - 1)
@@ -610,7 +764,7 @@ def generate_bonus(level, level_num, bonuses):
             if level_num > 5:
                 if bonuses[i] == 'speed_up':
                     level[y][x] = '+'
-            if not SECOND_LIFE:
+            if LIFE == 1:
                 if bonuses[i] == 'second_life':
                     level[y][x] = '$'
             if bonuses[i] == 'bomb_range_up':
@@ -625,20 +779,22 @@ def camera_configure(camera, target_rect):
     l = max(-(camera.width - MAIN_WIDTH), l)  # Не движемся дальше правой границы
     t = max(-(camera.height - MAIN_HEIGHT), t)  # Не движемся дальше нижней границы
     t = min(0, t)  # Не движемся дальше верхней границы
-    # print(l, t, w, h)
     return pygame.Rect(l, t, w, h)
 
 
 def main(level_numb=1):
-    global RADIUS
-    if level_numb != 1:
+    global RADIUS, LIFE, DEATH
+    pygame.init()  # Инициация PyGame, обязательная строчка
+    if level_numb == 11:
+        start_screen(level_numb)
+    elif level_numb != 1:
         level_numb -= 1
         level = load_level('map', level_numb)
+        start_screen(level_numb + 1)
     else:
         level = load_level('map')
-    pygame.init()  # Инициация PyGame, обязательная строчка
+        start_screen(level_numb)
     pygame.display.set_caption("BomberMan")  # Пишем в шапку
-    start_screen()
     pygame.mixer.music.load(os.path.join('audio', 'background.mp3'))
     pygame.mixer.music.set_volume(0.02)
     pygame.mixer.music.play(-1)
@@ -651,10 +807,10 @@ def main(level_numb=1):
     bomb_lst = []
     hero = Player(70, 70)  # создаем героя по (x,y) координатам
     up = down = left = right = False  # по умолчанию - стоим
-    text_score ='SCORE 0'.rjust(3)
+    text_life = f'LIFE {LIFE}'.rjust(3)
+    text_score = 'SCORE 0'.rjust(3)
     counter, text = 1000, 'TIME 200'.rjust(3)
     pygame.time.set_timer(pygame.USEREVENT, 200)
-    running = True
     all_sprites = pygame.sprite.Group()  # Все объекты
     platforms = []  # то, во что мы будем врезаться или опираться
     enemies = pygame.sprite.Group()
@@ -664,7 +820,7 @@ def main(level_numb=1):
     generate_teleport(level)
     tp = pygame.sprite.Group()
     on_next_level = []
-#    generate_enemy(level, level_num)
+    #generate_enemy(level, level_num)
     x = y = 0  # координаты
     all_bonuses = []
     bonus_sprite = pygame.sprite.Group()
@@ -724,12 +880,19 @@ def main(level_numb=1):
     font = pygame.font.SysFont('Consolas', 30)
     camera = Camera(camera_configure, total_level_width, total_level_height)
     boom = pygame.mixer.Sound(os.path.join('audio', 'bang.wav'))
+    death_audio = pygame.mixer.Sound(os.path.join('audio', 'death.wav'))
     boom.set_volume(0.05)
     lst_bomb_coords = []
-    while running:  # Основной цикл программы
-        bomb_radius = RADIUS
+    enem_score = enem.copy()
+    while counter:  # Основной цикл программы
         score = 0
+        bomb_radius = RADIUS
         screen.blit(bg, (0, 0))  # Каждую итерацию необходимо всё перерисовывать
+        if DEATH:
+            DEATH = False
+            death_audio.play()
+            pygame.time.delay(5000)
+            restart()
         for event in pygame.event.get():  # Обрабатываем события
             lst_bomb_coords = []
             if event.type == pygame.USEREVENT:
@@ -748,12 +911,12 @@ def main(level_numb=1):
                             b.animation(bomb_lst[timer][1])
                     else:
                         x, y = bomb_lst[timer][0].coords()
+
                         for rad in range(1, bomb_radius):
                             for coords in [(0, 0, 0, 0), (-64, 0, -1, 0), (64, 0, 1, 0), (0, -64, 0, -1),
                                            (0, 64, 0, 1)]:
                                 try:
-                                    if level[y // 64 + coords[3]][x // 64 + coords[2]] != '#' and \
-                                            level[y // 64 + coords[3]][x // 64 + coords[2]] != '/' and \
+                                    if level[y // 64 + coords[3]][x // 64 + coords[2]] != '#'and \
                                             (y // 64 + coords[3], x // 64 + coords[2]) not in boom_draw_check:
                                         if level[y // 64 + coords[3]][x // 64 + coords[2]] == '%':
                                             boom_draw_check.append((y // 64 + coords[3], x // 64 + coords[2]))
@@ -772,7 +935,7 @@ def main(level_numb=1):
                 boom_lst = boom_lst_check[::]
                 bomb_lst = bomb_lst_check[::]
             if event.type == pygame.QUIT:
-                running = False
+                terminate()
             elif event.type == pygame.KEYDOWN and event.key == pygame.K_UP:
                 up = True
             elif event.type == pygame.KEYDOWN and event.key == pygame.K_LEFT:
@@ -793,10 +956,11 @@ def main(level_numb=1):
                 bomb = Bomb(hero.get_coords())
                 bomb_group.add(bomb)
                 bomb_lst.append((bomb, 10))
-        screen.blit(font.render(text, True, (0, 0, 0)), (50, 850))
-        screen.blit(font.render(text_score, True, (0, 0, 0)), (250, 850))
+        screen.blit(font.render(text, True, (0, 0, 0)), (0, 850))
+        screen.blit(font.render(text_score, True, (0, 0, 0)), (150, 850))
+        screen.blit(font.render(text_life, True, (0, 0, 0)), (350, 850))
         camera.update(hero)  # центризируем камеру относительно персонажа
-        hero.update(left, right, up, down, platforms, enem, on_next_level)  # передвижение
+        hero.update(left, right, up, down, platforms, enem, on_next_level, boom_lst)  # передвижение
         for sprite in bonus_sprite:
             screen.blit(sprite.image, camera.apply(sprite))
             sprite.update(hero_lst)
@@ -813,15 +977,18 @@ def main(level_numb=1):
                 platforms.remove(sprite.check(boom_lst))
             except Exception:
                 pass
-        for sprite in enem:
+        for sprite in enem_score:
             score += sprite.get_score()
         for sprite in enemies:
             screen.blit(sprite.image, camera.apply(sprite))
             sprite.update(level, platforms, bomb_lst, boom_lst, hero.get_coords(), lst_bomb_coords)
+            if sprite.check():
+                enem.remove(sprite.name())
         text_score = f'SCORE {str(score).rjust(3)}'
+        text_life = f'LIFE {LIFE}'.rjust(3)
         pygame.display.update()  # обновление и вывод всех изменений на экран
         clock.tick(FPS)
-    pygame.quit()
+    restart()
 
 
 if __name__ == "__main__":
