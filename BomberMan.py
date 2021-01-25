@@ -21,30 +21,9 @@ LIFE = 1
 TIMEOUT = 0
 DEATH = False
 pygame.init()
-star = pygame.sprite.Group()
-
-
-def win():
-    global star
-    for _ in range(100):
-        text = ['Вы прошли игру, поздравляем!']
-        font = pygame.font.SysFont('Consolas', 50)
-        screen.fill(pygame.Color('black'))
-        text_coord = 50
-        for line in text:
-            string_rendered = font.render(line, True, pygame.Color('white'))
-            intro_rect = string_rendered.get_rect()
-            text_coord += 10
-            intro_rect.top = text_coord
-            intro_rect.x = 10
-            text_coord += intro_rect.height
-            screen.blit(string_rendered, intro_rect)
-        x, y = random.randint(100, 400), random.randint(100, 400)
-        create_particles((x, y))
-        star.update()
-        star.draw(screen)
-        pygame.display.flip()
-        clock.tick(FPS)
+score = 0
+score_2 = 0
+summary = []
 
 
 def terminate():
@@ -78,6 +57,7 @@ def restart():
 
 
 def start_screen(level_number):
+    global score_2, summary
     if level_number == 1:
         intro_text = ["ЗАСТАВКА", "",
                       "Правила игры",
@@ -109,12 +89,13 @@ def start_screen(level_number):
             intro_rect.x = 10
             text_coord += intro_rect.height
             screen.blit(string_rendered, intro_rect)
-        win()
     else:
         font = pygame.font.SysFont('Consolas', 50)
         screen.fill(pygame.Color('black'))
         text = font.render('Level ' + str(level_number), True, pygame.Color('white'))
         screen.blit(text, (WIDTH // 2, HEIGHT // 2))
+        for sprite in summary:
+            score_2 += sprite.get_score()
     while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -262,7 +243,7 @@ class Player(sprite.Sprite):
         self.collide(self.xvel, 0, platforms, enemies, tp, booms)
 
     def collide(self, xvel, yvel, platforms, enemies, tp, booms):
-        global level_num, LIFE, TIMEOUT, DEATH
+        global level_num, LIFE, TIMEOUT, DEATH, score_2, score, summary
         for p in platforms:
             if sprite.collide_rect(self, p):  # если есть пересечение стены с игроком
                 if xvel > 0:  # если движется вправо
@@ -632,53 +613,6 @@ class Bomb_radius_bonus(pygame.sprite.Sprite):
                 self.kill()
 
 
-# для отслеживания улетевших частиц
-# удобно использовать пересечение прямоугольников
-screen_rect = (0, 0, WIDTH, HEIGHT)
-GRAVITY = 10
-
-
-class Particle(pygame.sprite.Sprite):
-    # сгенерируем частицы разного размера
-    fire = [load_image("star.png")]
-    for scale in (5, 10, 20):
-        fire.append(pygame.transform.scale(fire[0], (scale, scale)))
-
-    def __init__(self, pos, dx, dy):
-        global star
-        super().__init__(star)
-        self.image = random.choice(self.fire)
-        self.rect = self.image.get_rect()
-
-        # у каждой частицы своя скорость — это вектор
-        self.velocity = [dx, dy]
-        # и свои координаты
-        self.rect.x, self.rect.y = pos
-
-        # гравитация будет одинаковой (значение константы)
-        self.gravity = GRAVITY
-
-    def update(self):
-        # применяем гравитационный эффект:
-        # движение с ускорением под действием гравитации
-        self.velocity[1] += self.gravity
-        # перемещаем частицу
-        self.rect.x += self.velocity[0]
-        self.rect.y += self.velocity[1]
-        # убиваем, если частица ушла за экран
-        if not self.rect.colliderect(screen_rect):
-            self.kill()
-
-
-def create_particles(position):
-    # количество создаваемых частиц
-    particle_count = 20
-    # возможные скорости
-    numbers = range(-5, 6)
-    for _ in range(particle_count):
-        Particle(position, random.choice(numbers), random.choice(numbers))
-
-
 class Speed_up_bonus(pygame.sprite.Sprite):
     def __init__(self, x, y):
         sprite.Sprite.__init__(self)
@@ -783,7 +717,7 @@ def camera_configure(camera, target_rect):
 
 
 def main(level_numb=1):
-    global RADIUS, LIFE, DEATH
+    global RADIUS, LIFE, DEATH, score, score_2, summary
     pygame.init()  # Инициация PyGame, обязательная строчка
     if level_numb == 11:
         start_screen(level_numb)
@@ -886,6 +820,7 @@ def main(level_numb=1):
     enem_score = enem.copy()
     while counter:  # Основной цикл программы
         score = 0
+        score += score_2
         bomb_radius = RADIUS
         screen.blit(bg, (0, 0))  # Каждую итерацию необходимо всё перерисовывать
         if DEATH:
@@ -986,6 +921,7 @@ def main(level_numb=1):
                 enem.remove(sprite.name())
         text_score = f'SCORE {str(score).rjust(3)}'
         text_life = f'LIFE {LIFE}'.rjust(3)
+        summary = enem_score.copy()
         pygame.display.update()  # обновление и вывод всех изменений на экран
         clock.tick(FPS)
     restart()
