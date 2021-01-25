@@ -84,7 +84,8 @@ def start_screen(level_number):
         intro_text = ["Игра: Bomberman",
                       "Правила игры:",
                       "Управление стрелочками, пробел - поставить бомбу",
-                      "Для прохождения на следующий уровень надо убить всех врагов"]
+                      "Для прохождения на следующий уровень надо убить всех врагов",
+                      "и зайти в портал", 'Чтобы начать играть нажмите любую кнопку']
 
         fon = pygame.transform.scale(load_image('fon.png'), (MAIN_WIDTH, MAIN_HEIGHT))
         screen.blit(fon, (0, 0))
@@ -112,12 +113,14 @@ def start_screen(level_number):
             text_coord += intro_rect.height
             screen.blit(string_rendered, intro_rect)
     else:
-        font = pygame.font.SysFont('Consolas', 50)
+        font = pygame.font.SysFont('Consolas', 30)
         screen.fill(pygame.Color('black'))
-        text = font.render('Level ' + str(level_number), True, pygame.Color('white'))
-        screen.blit(text, (WIDTH // 2, HEIGHT // 2))
+        text = font.render(f'Level {level_number}', True, pygame.Color('white'))
+        screen.blit(text, (MAIN_WIDTH // 2 - 30, MAIN_HEIGHT // 2 - 30))
         for sprite in summary:
             score_2 += sprite.get_score()
+        new_text = font.render('Нажмите любую кнопку, чтобы продолжить', True, pygame.Color('white'))
+        screen.blit(new_text, (0, MAIN_HEIGHT - 30))
     while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -677,7 +680,7 @@ def generate_enemy(level, level_num):
         while level[y][x] != '.':
             y = random.randint(0, len(level) - 1)
             x = random.randint(0, len(level[y]) - 1)
-        if (x, y) not in [(1, 1), (1, 2), (2, 1)]:
+        if (x, y) not in (range(1, 6), range(1, 6)):
             level[y][x] = '^'
 
 
