@@ -19,7 +19,6 @@ PLATFORM_COLOR = "#FF6262"
 RADIUS = 2
 LIFE = 14
 TIMEOUT = 0
-DEATH = False
 
 
 def terminate():
@@ -212,7 +211,7 @@ class Player(sprite.Sprite):
         self.collide(self.xvel, 0, platforms, enemies, tp)
 
     def collide(self, xvel, yvel, platforms, enemies, tp):
-        global level_num, LIFE, TIMEOUT, DEATH
+        global level_num, LIFE, TIMEOUT
         for p in platforms:
             if sprite.collide_rect(self, p):  # если есть пересечение стены с игроком
                 if xvel > 0:  # если движется вправо
@@ -235,8 +234,7 @@ class Player(sprite.Sprite):
                     LIFE -= 1
                     self.invincibility = FPS * 5
                 elif self.invincibility == 0:
-                    self.image = load_image('death_animation.png')
-                    DEATH = True
+                    restart()
 
         for t in tp:
             if sprite.collide_rect(self, t):
@@ -460,13 +458,29 @@ class Enemy_Two(pygame.sprite.Sprite):
         return self
 
 
+ANIMATION_RIGHT_ENEMY = [('pictures/e_1_right.png', 1)]
+ANIMATION_LEFT_ENEMY = [('pictures/e_1_left.png', 1)]
+ANIMATION_UP_ENEMY = [('pictures/e_1_up.png', 1)]
+ANIMATION_DOWN_ENEMY = [('pictures/e_1_down.png', 1)]
+
+
 class Enemy(pygame.sprite.Sprite):
     def __init__(self, x, y):
         sprite.Sprite.__init__(self)
         self.image = Surface((PLATFORM_WIDTH, PLATFORM_HEIGHT))
-        self.image = load_image('e_1_down.png')
+        self.image.fill(Color(COLOR))
         self.rect = pygame.Rect(x, y, ENEMY_WIDTH, ENEMY_HEIGHT)
+        self.image.set_colorkey(Color(COLOR))
         self.move = ['left', 'right', 'up', 'down']
+        self.boltAnimRight = pyganim.PygAnimation(ANIMATION_RIGHT_ENEMY)
+        self.boltAnimRight.play()  # Анимация движения влево
+        self.boltAnimLeft = pyganim.PygAnimation(ANIMATION_LEFT_ENEMY)
+        self.boltAnimLeft.play()
+        self.boltAnimStay = pyganim.PygAnimation(ANIMATION_DOWN_ENEMY)
+        self.boltAnimStay.play()
+        self.boltAnimStay.blit(self.image, (0, 0))  # По-умолчанию, стоим
+        self.boltAnimUp = pyganim.PygAnimation(ANIMATION_UP_ENEMY)
+        self.boltAnimUp.play()
         self.yvel = 0
         self.xvel = 0
         self.score = 0
@@ -475,13 +489,21 @@ class Enemy(pygame.sprite.Sprite):
 
     def update(self, level, platforms, bombs, booms, hero_coords, bomb_coords):
         if self.side == 'left':
+            self.image.fill(Color(COLOR))
             self.xvel = -ENEMY_MOVE_SPEED
+            self.boltAnimLeft.blit(self.image, (0, 0))
         if self.side == 'right':
+            self.image.fill(Color(COLOR))
             self.xvel = ENEMY_MOVE_SPEED
+            self.boltAnimRight.blit(self.image, (0, 0))
         if self.side == 'down':
+            self.image.fill(Color(COLOR))
             self.yvel = ENEMY_MOVE_SPEED
+            self.boltAnimStay.blit(self.image, (0, 0))
         if self.side == 'up':
+            self.image.fill(Color(COLOR))
             self.yvel = -ENEMY_MOVE_SPEED
+            self.boltAnimUp.blit(self.image, (0, 0))
 
         self.len_move -= 3
 
@@ -680,7 +702,7 @@ def camera_configure(camera, target_rect):
 
 
 def main(level_numb=1):
-    global RADIUS, LIFE, DEATH
+    global RADIUS, LIFE
     if level_numb != 1:
         level_numb -= 1
         level = load_level('map', level_numb)
@@ -689,8 +711,8 @@ def main(level_numb=1):
     pygame.init()  # Инициация PyGame, обязательная строчка
     pygame.display.set_caption("BomberMan")  # Пишем в шапку
     start_screen()
-    pygame.mixer.music.load(os.path.join('audio', 'background.mp3'))
-    pygame.mixer.music.set_volume(0.02)
+    pygame.mixer.music.load(os.path.join('audio', 'background.wav'))
+    pygame.mixer.music.set_volume(0.1)
     pygame.mixer.music.play(-1)
     bg = Surface((MAIN_WIDTH, MAIN_HEIGHT))  # Создание видимой поверхности
     # будем использовать как фон
@@ -781,11 +803,6 @@ def main(level_numb=1):
         score = 0
         bomb_radius = RADIUS
         screen.blit(bg, (0, 0))  # Каждую итерацию необходимо всё перерисовывать
-        if DEATH:
-            DEATH = False
-            death_audio.play()
-            pygame.time.delay(5000)
-            restart()
         for event in pygame.event.get():  # Обрабатываем события
             lst_bomb_coords = []
             if event.type == pygame.USEREVENT:
@@ -809,7 +826,7 @@ def main(level_numb=1):
                             for coords in [(0, 0, 0, 0), (-64, 0, -1, 0), (64, 0, 1, 0), (0, -64, 0, -1),
                                            (0, 64, 0, 1)]:
                                 try:
-                                    if level[y // 64 + coords[3]][x // 64 + coords[2]] != '#'and \
+                                    if level[y // 64 + coords[3]][x // 64 + coords[2]] != '#' and \
                                             (y // 64 + coords[3], x // 64 + coords[2]) not in boom_draw_check:
                                         if level[y // 64 + coords[3]][x // 64 + coords[2]] == '%':
                                             boom_draw_check.append((y // 64 + coords[3], x // 64 + coords[2]))
