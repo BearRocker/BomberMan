@@ -13,32 +13,32 @@ screen = pygame.display.set_mode(DISPLAY)
 
 BACKGROUND_COLOR = "#004400"
 clock = pygame.time.Clock()
-PLATFORM_WIDTH = 64
-PLATFORM_HEIGHT = 64
+PLATFORM_WIDTH = 64  # Ширина 1 клетки
+PLATFORM_HEIGHT = 64  # Высота 1 клетки
 PLATFORM_COLOR = "#FF6262"
-RADIUS = 2
-LIFE = 1
+RADIUS = 2  # Радиус взрыва бомбы
+LIFE = 1  # Кол-во жизней
 TIMEOUT = 0
-DEATH = False
+DEATH = False  # Флаг на смерть
 pygame.init()
 score = 0
 score_2 = 0
-summary = []
+summary = []  # Все очки, набранные за игру
 
-ENEMY_WIDTH = 40
-ENEMY_HEIGHT = 40
-ENEMY_MOVE_SPEED = 1
+ENEMY_WIDTH = 40  # Ширина противника
+ENEMY_HEIGHT = 40  # Высота противника
+ENEMY_MOVE_SPEED = 1  # Скорость противника
 ANIMATION_RIGHT_ENEMY_TWO = [('pictures/e_4_right.png', 1)]
 ANIMATION_LEFT_ENEMY_TWO = [('pictures/e_4_left.png', 1)]
 ANIMATION_UP_ENEMY_TWO = [('pictures/e_4_up.png', 1)]
 ANIMATION_DOWN_ENEMY_TWO = [('pictures/e_4_down.png', 1)]
-MOVE_SPEED = 3
-WIDTH = 40
-HEIGHT = 40
+MOVE_SPEED = 3  # Скорость героя
+WIDTH = 40  # Ширина героя 
+HEIGHT = 40  # Высота героя
 COLOR = "#888888"
 
 ANIMATION_DELAY = 0.1  # скорость смены кадров
-level_num = 1
+level_num = 1  # Номер уровня
 ANIMATION_RIGHT = [('pictures/bomberman_right.png', 1)]
 ANIMATION_LEFT = [('pictures/bomberman_left.png', 1)]
 ANIMATION_UP = [('pictures/bomberman_up.png', 1)]
@@ -46,7 +46,7 @@ ANIMATION_DOWN = [('pictures/bomberman_down.png', 1)]
 ANIMATION_BOMB = [('pictures/bomb.png', 1)]
 ANIMATION_BOMB_BIG = [('pictures/bomb_big.png', 1)]
 ANIMATION_DEATH = [('pictures/death_animation.png', 1)]
-TIME_GOD = 25
+TIME_GOD = 25  # Время бессмертия
 
 
 def terminate():
@@ -54,7 +54,7 @@ def terminate():
     sys.exit()
 
 
-def load_image(name, colorkey=None):
+def load_image(name, colorkey=None):  # Функция загрузки изображения
     fullname = os.path.join('pictures', name)
     try:
         image = pygame.image.load(fullname)
@@ -71,7 +71,7 @@ def load_image(name, colorkey=None):
         return image
 
 
-def restart():
+def restart():  # Функция перезапуска игры
     global RADIUS, MOVE_SPEED, ENEMY_MOVE_SPEED
     RADIUS = 2
     MOVE_SPEED = 3
@@ -82,7 +82,7 @@ def restart():
     main()
 
 
-def start_screen(level_number):
+def start_screen(level_number):  # Стартовый экран, по совместительству и экран смены между уровнями
     global score_2, summary
     if level_number == 1:
         intro_text = ["Игра: Bomberman",
@@ -103,7 +103,7 @@ def start_screen(level_number):
             intro_rect.x = 10
             text_coord += intro_rect.height
             screen.blit(string_rendered, intro_rect)
-    elif level_number == 11:
+    elif level_number == 11:  # Если прошёл 10 уровень
         text = ['Вы прошли игру, поздравляем!']
         font = pygame.font.SysFont('Consolas', 50)
         screen.fill(pygame.Color('black'))
@@ -147,7 +147,7 @@ class Wall(pygame.sprite.Sprite):
         self.rect = pygame.Rect(x, y, PLATFORM_WIDTH, PLATFORM_HEIGHT)
 
 
-def load_level(filename, add_to_level=0):
+def load_level(filename, add_to_level=0):  # Загрузка уровня из level/map.txt и увеличение длины уровня, если перешёл на след. уровень
     filename = "level/" + filename + '.txt'
     # читаем уровень, убирая символы перевода строки
     with open(filename, 'r') as mapFile:
@@ -176,8 +176,8 @@ def load_level(filename, add_to_level=0):
     return level_map
 
 
-class Player(sprite.Sprite):
-    def __init__(self, x, y):
+class Player(sprite.Sprite):  # Класс героя
+    def __init__(self, x, y):  # Инициализация героя по x и y
         sprite.Sprite.__init__(self)
         self.xvel = 0  # скорость перемещения. 0 - стоять на месте
         self.startX = x  # Начальная позиция Х, пригодится когда будем переигрывать уровень
@@ -203,7 +203,7 @@ class Player(sprite.Sprite):
         self.boltAnimDeath = pyganim.PygAnimation(ANIMATION_DEATH)
         self.boltAnimDeath.play()
 
-    def update(self, left, right, up, down, platforms, enemies, tp, booms):
+    def update(self, left, right, up, down, platforms, enemies, tp, booms):  # Проверка ходит, куда либо и добавляет анимацию
         screen.blit(self.font.render(self.text, True, (0, 0, 0)), (500, 850))
         if up:
             self.image.fill(Color(COLOR))
@@ -248,10 +248,10 @@ class Player(sprite.Sprite):
         else:
             self.text = ''
         self.rect.y += self.yvel
-        self.collide(0, self.yvel, platforms, enemies, tp, booms)
+        self.collide(0, self.yvel, platforms, enemies, tp, booms)  # Проверка столкновения
 
         self.rect.x += self.xvel  # переносим свои положение на xvel
-        self.collide(self.xvel, 0, platforms, enemies, tp, booms)
+        self.collide(self.xvel, 0, platforms, enemies, tp, booms)  # Проверка столкновения
 
     def collide(self, xvel, yvel, platforms, enemies, tp, booms):
         global level_num, LIFE, TIMEOUT, DEATH, score_2, score, summary
@@ -297,7 +297,7 @@ class Player(sprite.Sprite):
     def get_coords(self):
         return self.rect.x, self.rect.y
 
-    def animation_death(self):
+    def animation_death(self):  # Анимация смерти
         global DEATH
         self.image = Surface((64, 64))
         self.image.fill(Color(COLOR))
@@ -314,7 +314,7 @@ class Destroyable_wall(pygame.sprite.Sprite):
         self.image = load_image('break_wall.png')
         self.rect = pygame.Rect(x, y, PLATFORM_WIDTH, PLATFORM_HEIGHT)
 
-    def check(self, booms):
+    def check(self, booms):  # Проверка задел ли sprite взрыва стенку
         for boom in booms:
             boom = boom[0]
             if sprite.collide_rect(self, boom):
@@ -372,7 +372,7 @@ class BOOM(pygame.sprite.Sprite):
         self.rect = pygame.Rect(x - 10, y - 10, PLATFORM_WIDTH, PLATFORM_HEIGHT)
 
 
-class Enemy_Two(pygame.sprite.Sprite):
+class Enemy_Two(pygame.sprite.Sprite):  # Класс второго противника
     def __init__(self, x, y):
         sprite.Sprite.__init__(self)
         self.image = Surface((PLATFORM_WIDTH, PLATFORM_HEIGHT))
@@ -500,7 +500,7 @@ class Enemy_Two(pygame.sprite.Sprite):
 
 
 class Enemy(pygame.sprite.Sprite):
-    def __init__(self, x, y):
+    def __init__(self, x, y): 
         sprite.Sprite.__init__(self)
         self.image = Surface((PLATFORM_WIDTH, PLATFORM_HEIGHT))
         self.image = load_image('e_1_down.png')
@@ -592,7 +592,7 @@ class Enemy(pygame.sprite.Sprite):
         return self
 
 
-class Teleport(pygame.sprite.Sprite):
+class Teleport(pygame.sprite.Sprite):  # Sprite телепорта 
     def __init__(self, x, y):
         sprite.Sprite.__init__(self)
         self.image = Surface((PLATFORM_WIDTH, PLATFORM_HEIGHT))
@@ -600,7 +600,7 @@ class Teleport(pygame.sprite.Sprite):
         self.rect = pygame.Rect(x, y, PLATFORM_WIDTH, PLATFORM_HEIGHT)
 
 
-class Bomb_radius_bonus(pygame.sprite.Sprite):
+class Bomb_radius_bonus(pygame.sprite.Sprite):  # Sprite бонуса радиуса бомбы
     def __init__(self, x, y):
         sprite.Sprite.__init__(self)
         self.image = Surface((PLATFORM_WIDTH, PLATFORM_HEIGHT))
@@ -615,7 +615,7 @@ class Bomb_radius_bonus(pygame.sprite.Sprite):
                 self.kill()
 
 
-class Speed_up_bonus(pygame.sprite.Sprite):
+class Speed_up_bonus(pygame.sprite.Sprite):  # Sprite бонуса увеличения скорости
     def __init__(self, x, y):
         sprite.Sprite.__init__(self)
         self.image = Surface((PLATFORM_WIDTH, PLATFORM_HEIGHT))
@@ -630,7 +630,7 @@ class Speed_up_bonus(pygame.sprite.Sprite):
                 self.kill()
 
 
-class Second_life_bonus(pygame.sprite.Sprite):
+class Second_life_bonus(pygame.sprite.Sprite):  # Sprite бонуса второй жизни
     def __init__(self, x, y):
         sprite.Sprite.__init__(self)
         self.image = Surface((PLATFORM_WIDTH, PLATFORM_HEIGHT))
@@ -645,7 +645,7 @@ class Second_life_bonus(pygame.sprite.Sprite):
                 self.kill()
 
 
-def generate_destroyable_walls(level):
+def generate_destroyable_walls(level):  # Генерация разрушаемых стен
     coords_of_walls = []
     for i in range(random.randint(100 + level_num, 300 + level_num // 2)):
         y = random.randint(0, len(level) - 1)
@@ -659,7 +659,7 @@ def generate_destroyable_walls(level):
                 coords_of_walls.append((x, y))
 
 
-def generate_teleport(level):
+def generate_teleport(level):  # Генерация телепорта
     y = random.randint(0, len(level) - 1)
     x = random.randint(0, len(level[y]) - 1)
     while level[y][x] != '.':
@@ -669,7 +669,7 @@ def generate_teleport(level):
         level[y][x] = '/'
 
 
-def generate_enemy(level, level_num):
+def generate_enemy(level, level_num):  # Генерация противников 
     for i in range(level_num * 2):
         y = random.randint(0, len(level) - 1)
         x = random.randint(0, len(level[y]) - 1)
@@ -688,7 +688,7 @@ def generate_enemy(level, level_num):
             level[y][x] = '^'
 
 
-def generate_bonus(level, level_num, bonuses):
+def generate_bonus(level, level_num, bonuses):  # Генерация бонусов
     global LIFE
     for i in range(len(bonuses)):
         y = random.randint(0, len(level) - 1)
@@ -765,44 +765,44 @@ def main(level_numb=1):
     generate_bonus(level, level_num, ['speed_up', 'bomb_range_up', 'second_life'])
     for row in level:  # вся строка
         for col in row:  # каждый символ
-            if col == '#':
+            if col == '#':  # Если в map.txt знак # спавнится не разрушаемая стенка
                 platform = Wall(x, y)
                 all_sprites.add(platform)
                 platforms.append(platform)
-            if col == '%':
+            if col == '%':  # Если в map.txt знак % спавнится разрушаемая стенка
                 wall = Destroyable_wall(x, y)
                 all_sprites.add(wall)
                 platforms.append(wall)
-            if col == '*':
+            if col == '*':  # Если в map.txt знак * спавнится противник №1
                 enemy = Enemy(x, y)
                 enemies.add(enemy)
                 enem.append(enemy)
-            if col == '^':
+            if col == '^':  # Если в map.txt знак ^ спавнится противник №2
                 enemy = Enemy_Two(x, y)
                 enemies.add(enemy)
                 enem.append(enemy)
-            if col == '!':
+            if col == '!':  # Если в map.txt знак ! спавнится бонус радиуса бомбы, поверх которого стоит стенка
                 wall = Destroyable_wall(x, y)
                 all_sprites.add(wall)
                 platforms.append(wall)
                 bonus = Bomb_radius_bonus(x, y)
                 bonus_sprite.add(bonus)
                 all_bonuses.append(bonus)
-            if col == '/':
+            if col == '/':  # Если в map.txt знак / спавнится телепорт, поверх которого стоит стенка
                 wall = Destroyable_wall(x, y)
                 all_sprites.add(wall)
                 platforms.append(wall)
                 teleport = Teleport(x, y)
                 tp.add(teleport)
                 on_next_level.append(teleport)
-            if col == '+':
+            if col == '+': # Если в map.txt знак + спавнится бонус ускорения, поверх которого стоит стенка
                 wall = Destroyable_wall(x, y)
                 all_sprites.add(wall)
                 platforms.append(wall)
                 speed_up = Speed_up_bonus(x, y)
                 bonus_sprite.add(speed_up)
                 all_bonuses.append(speed_up)
-            if col == '$':
+            if col == '$':  # Если в map.txt знак $ спавнится бонус второй жизни, поверх которого стоит стенка
                 wall = Destroyable_wall(x, y)
                 all_sprites.add(wall)
                 platforms.append(wall)
