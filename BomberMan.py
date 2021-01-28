@@ -72,6 +72,10 @@ def load_image(name, colorkey=None):
 
 
 def restart():
+    global RADIUS, MOVE_SPEED, ENEMY_MOVE_SPEED
+    RADIUS = 2
+    MOVE_SPEED = 3
+    ENEMY_MOVE_SPEED = 1
     pygame.mixer.music.load(os.path.join('audio', 'restart.mp3'))
     pygame.mixer.music.set_volume(0.02)
     pygame.mixer.music.play(-1)
